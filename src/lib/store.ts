@@ -45,10 +45,10 @@ async function toPhotoLocation(location: StoredLocation): Promise<{
 }> {
   let changed = false;
 
-  // 之前反查失败时地名存成了坐标，这里用内置城市库兜底重试
-  if (location.name.includes("°")) {
+  // 用内置城市库自动校准地名（用户手动改过的除外），修正旧数据里匹配错的城市
+  if (!location.renamed) {
     const city = matchCity(location.coordinates[0], location.coordinates[1]);
-    if (city) {
+    if (city && city !== location.name) {
       location.name = city;
       changed = true;
     }
@@ -157,6 +157,26 @@ export async function loadImported(
 
   flush();
   return locations;
+}
+
+export async function renameLocation(id: string, name: string): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    const store = tx.objectStore(STORE);
+    const getReq = store.get(id);
+    getReq.onsuccess = () => {
+      const loc = getReq.result as StoredLocation | undefined;
+      if (loc) {
+        loc.name = name;
+        loc.renamed = true;
+        store.put(loc);
+      }
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
 }
 
 export async function clearImported(): Promise<void> {

@@ -30,4 +30,5 @@ export type StoredLocation = {
   coordinates: [number, number];
   coverPhotoId: string;
   photos: StoredPhoto[];
+  renamed?: boolean;
 };

@@ -73,7 +73,30 @@ export const CHINA_CITIES: City[] = [
   { name: "张掖", coordinates: [100.4498, 38.9259] },
   { name: "吐鲁番", coordinates: [89.1895, 42.9513] },
   { name: "喀什", coordinates: [75.9898, 39.4704] },
-  { name: "伊宁", coordinates: [81.3241, 43.9169] }
+  { name: "伊宁", coordinates: [81.3241, 43.9169] },
+  { name: "九江", coordinates: [115.9910, 29.7055] },
+  { name: "景德镇", coordinates: [117.1784, 29.2688] },
+  { name: "上饶", coordinates: [117.9434, 28.4549] },
+  { name: "鹰潭", coordinates: [117.0692, 28.2602] },
+  { name: "抚州", coordinates: [116.3581, 27.9490] },
+  { name: "宜春", coordinates: [114.4168, 27.8156] },
+  { name: "萍乡", coordinates: [113.8546, 27.6227] },
+  { name: "新余", coordinates: [114.9174, 27.8178] },
+  { name: "吉安", coordinates: [114.9929, 27.1132] },
+  { name: "赣州", coordinates: [114.9350, 25.8311] },
+  { name: "井冈山", coordinates: [114.2849, 26.6336] },
+  { name: "株洲", coordinates: [113.1338, 27.8274] },
+  { name: "湘潭", coordinates: [112.9441, 27.8297] },
+  { name: "衡阳", coordinates: [112.5719, 26.8932] },
+  { name: "邵阳", coordinates: [111.4678, 27.2386] },
+  { name: "岳阳", coordinates: [113.1290, 29.3571] },
+  { name: "常德", coordinates: [111.6985, 29.0317] },
+  { name: "益阳", coordinates: [112.3552, 28.5539] },
+  { name: "郴州", coordinates: [113.0148, 25.7706] },
+  { name: "永州", coordinates: [111.6134, 26.4203] },
+  { name: "怀化", coordinates: [110.0016, 27.5698] },
+  { name: "娄底", coordinates: [111.9935, 27.7002] },
+  { name: "吉首", coordinates: [109.7386, 28.3115] }
 ];
 
 function haversineKm(a: [number, number], b: [number, number]): number {

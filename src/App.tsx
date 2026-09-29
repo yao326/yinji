@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { GlobeMap } from "./components/GlobeMap";
 import type { Photo, PhotoLocation } from "./data/types";
 import { importPhotosFromFiles } from "./lib/importPhotos";
-import { loadImported, saveImported } from "./lib/store";
+import { loadImported, saveImported, renameLocation } from "./lib/store";
 
 type ImportStatus = { kind: "working" | "done" | "error"; text: string } | null;
 
@@ -17,6 +17,7 @@ function App() {
   const [loadError, setLoadError] = useState(false);
   const [loadedCount, setLoadedCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [editingName, setEditingName] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -59,6 +60,20 @@ function App() {
 
   const handleSetCover = (locationId: string, photoId: string) =>
     setCoverOverrides((current) => ({ ...current, [locationId]: photoId }));
+
+  const handleRename = (locationId: string, name: string) => {
+    setImportedLocations((current) =>
+      current.map((loc) => (loc.id === locationId ? { ...loc, name } : loc))
+    );
+    renameLocation(locationId, name).catch(() => {});
+  };
+
+  const commitRename = (rawName: string) => {
+    setEditingName(false);
+    const name = rawName.trim();
+    if (!name || !activeLocation || name === activeLocation.name) return;
+    handleRename(activeLocation.id, name);
+  };
 
   const handleImportClick = () => {
     setMenuOpen(false);
@@ -201,8 +216,24 @@ function App() {
 
             <div className="panel-heading">
               <span>{activeLocation.country}</span>
-              <h1>{activeLocation.name}</h1>
-              <p>{activeLocation.photos.length} 张照片 · 点击星标可改封面</p>
+              {editingName ? (
+                <input
+                  className="name-input"
+                  autoFocus
+                  defaultValue={activeLocation.name}
+                  onBlur={(event) => commitRename(event.currentTarget.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") event.currentTarget.blur();
+                    if (event.key === "Escape") setEditingName(false);
+                  }}
+                />
+              ) : (
+                <h1 onClick={() => setEditingName(true)} title="点击修改地点名">
+                  {activeLocation.name}
+                  <button className="rename-hint" aria-label="修改地点名">✎</button>
+                </h1>
+              )}
+              <p>{activeLocation.photos.length} 张照片 · 点击星标可改封面 · 点击地点名可改名</p>
             </div>
 
             <div className="photo-list">

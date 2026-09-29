@@ -1,7 +1,8 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GlobeMap } from "./components/GlobeMap";
 import { demoLocations, type Photo, type PhotoLocation } from "./data/demoPhotos";
 import { importPhotosFromFiles } from "./lib/importPhotos";
+import { loadImported, saveImported } from "./lib/store";
 
 type ImportStatus = { kind: "working" | "done" | "error"; text: string } | null;
 
@@ -14,6 +15,12 @@ function App() {
   const [importStatus, setImportStatus] = useState<ImportStatus>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    loadImported()
+      .then(setImportedLocations)
+      .catch(() => {});
+  }, []);
 
   const locations = useMemo(
     () => [...demoLocations, ...importedLocations],
@@ -48,6 +55,7 @@ function App() {
       const result = await importPhotosFromFiles(Array.from(files));
       if (result.totalPhotos > 0) {
         setImportedLocations((current) => [...current, ...result.locations]);
+        saveImported(result.stored).catch(() => {});
       }
       const parts: string[] = [`成功导入 ${result.totalPhotos} 张`];
       if (result.skipped.length) parts.push(`${result.skipped.length} 张没有定位信息`);

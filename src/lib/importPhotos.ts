@@ -1,8 +1,10 @@
 import exifr from "exifr";
 import type { Photo, PhotoLocation } from "../data/demoPhotos";
+import type { StoredLocation } from "./store";
 
 export type ImportResult = {
   locations: PhotoLocation[];
+  stored: StoredLocation[];
   totalPhotos: number;
   skipped: string[];
   failed: string[];
@@ -37,12 +39,18 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
   }
 }
 
+function runId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export async function importPhotosFromFiles(files: File[]): Promise<ImportResult> {
-  type Parsed = Photo & { coordinates: [number, number] };
+  type Parsed = { id: string; title: string; date: string; file: File; coordinates: [number, number] };
   const parsed: Parsed[] = [];
   const skipped: string[] = [];
   const failed: string[] = [];
-  let seq = 0;
+  const run = runId();
 
   for (const file of files) {
     try {
@@ -52,7 +60,6 @@ export async function importPhotosFromFiles(files: File[]): Promise<ImportResult
         skipped.push(file.name);
         continue;
       }
-      seq += 1;
       const date =
         toIsoDate(meta?.DateTimeOriginal) ||
         toIsoDate(meta?.CreateDate) ||
@@ -60,10 +67,10 @@ export async function importPhotosFromFiles(files: File[]): Promise<ImportResult
         new Date(file.lastModified).toISOString().slice(0, 10);
 
       parsed.push({
-        id: `imported-${Date.now()}-${seq}`,
+        id: `${run}-${parsed.length + 1}`,
         title: file.name.replace(/\.[^.]+$/, ""),
-        image: URL.createObjectURL(file),
         date,
+        file,
         coordinates: [gps.longitude, gps.latitude],
       });
     } catch {
@@ -72,34 +79,55 @@ export async function importPhotosFromFiles(files: File[]): Promise<ImportResult
   }
 
   // 按约 1 公里内聚类，同一处照片堆叠成一组
-  const groups = new Map<string, { coordinates: [number, number]; photos: Photo[] }>();
+  const groups = new Map<string, { coordinates: [number, number]; photos: Parsed[] }>();
   for (const item of parsed) {
     const key = `${item.coordinates[1].toFixed(2)},${item.coordinates[0].toFixed(2)}`;
     const existing = groups.get(key);
-    const photo: Photo = { id: item.id, title: item.title, image: item.image, date: item.date };
     if (existing) {
-      existing.photos.push(photo);
+      existing.photos.push(item);
     } else {
-      groups.set(key, { coordinates: item.coordinates, photos: [photo] });
+      groups.set(key, { coordinates: item.coordinates, photos: [item] });
     }
   }
 
   const locations: PhotoLocation[] = [];
+  const stored: StoredLocation[] = [];
   let n = 0;
   for (const group of groups.values()) {
     n += 1;
     const [lng, lat] = group.coordinates;
     const name = await reverseGeocode(lat, lng);
     const cover = group.photos[0];
+    const locId = `${run}-loc-${n}`;
+
     locations.push({
-      id: `imported-loc-${Date.now()}-${n}`,
+      id: locId,
       name,
       country: shortCoord(lat, lng),
       coordinates: group.coordinates,
       coverPhotoId: cover.id,
-      photos: group.photos,
+      photos: group.photos.map((p) => ({
+        id: p.id,
+        title: p.title,
+        image: URL.createObjectURL(p.file),
+        date: p.date,
+      })),
+    });
+
+    stored.push({
+      id: locId,
+      name,
+      country: shortCoord(lat, lng),
+      coordinates: group.coordinates,
+      coverPhotoId: cover.id,
+      photos: group.photos.map((p) => ({
+        id: p.id,
+        title: p.title,
+        date: p.date,
+        blob: p.file,
+      })),
     });
   }
 
-  return { locations, totalPhotos: parsed.length, skipped, failed };
+  return { locations, stored, totalPhotos: parsed.length, skipped, failed };
 }

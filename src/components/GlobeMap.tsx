@@ -10,8 +10,19 @@ type GlobeMapProps = {
   onSelectLocation: (location: PhotoLocation) => void;
 };
 
+type Cluster = {
+  id: string;
+  name: string;
+  country: string;
+  coordinates: [number, number];
+  coverPhotoId: string;
+  photos: PhotoLocation["photos"];
+  members: PhotoLocation[];
+};
+
 const mapStyle = import.meta.env.VITE_MAP_STYLE_URL || "https://tiles.openfreemap.org/styles/liberty";
 setWorkerUrl(maplibreWorkerUrl);
+
 function addSatelliteBase(map: MapLibreMap) {
   if (map.getSource("satellite")) return;
   const style = map.getStyle();
@@ -55,17 +66,70 @@ function addSatelliteBase(map: MapLibreMap) {
   } else {
     map.addLayer({ id: "satellite-base", type: "raster", source: "satellite", paint: { "raster-fade-duration": 0 } });
   }
-
 }
+
+// 两点近似距离（经纬度，考虑纬度对经度的压缩）
+function approxDistance(a: [number, number], b: [number, number]): number {
+  const midLat = ((a[1] + b[1]) / 2) * (Math.PI / 180);
+  const dLat = a[1] - b[1];
+  const dLng = (a[0] - b[0]) * Math.cos(midLat);
+  return Math.sqrt(dLat * dLat + dLng * dLng);
+}
+
+// 当前缩放级别下的合并半径（度）：zoom 越小合并越猛，zoom 越大越精细
+function mergeRadius(zoom: number): number {
+  return 30 / Math.pow(2, zoom);
+}
+
+function clusterLocations(locations: PhotoLocation[], zoom: number): Cluster[] {
+  const radius = mergeRadius(zoom);
+  const groups: Cluster[] = [];
+
+  for (const loc of locations) {
+    let hit: Cluster | undefined;
+    for (const g of groups) {
+      if (approxDistance(g.coordinates, loc.coordinates) <= radius) {
+        hit = g;
+        break;
+      }
+    }
+
+    if (hit) {
+      hit.members.push(loc);
+      hit.photos.push(...loc.photos);
+      const n = hit.members.length;
+      hit.coordinates = [
+        (hit.coordinates[0] * (n - 1) + loc.coordinates[0]) / n,
+        (hit.coordinates[1] * (n - 1) + loc.coordinates[1]) / n
+      ];
+    } else {
+      groups.push({
+        id: loc.id,
+        name: loc.name,
+        country: loc.country,
+        coordinates: loc.coordinates,
+        coverPhotoId: loc.coverPhotoId,
+        photos: [...loc.photos],
+        members: [loc]
+      });
+    }
+  }
+
+  return groups;
+}
+
 export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation }: GlobeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
   const onSelectRef = useRef(onSelectLocation);
+  const coversRef = useRef(covers);
+  const locationsRef = useRef(locations);
+  const renderAllRef = useRef<() => void>(() => {});
 
-  useEffect(() => {
-    onSelectRef.current = onSelectLocation;
-  }, [onSelectLocation]);
+  onSelectRef.current = onSelectLocation;
+  coversRef.current = covers;
+  locationsRef.current = locations;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -93,7 +157,22 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
     mapRef.current = map;
     if (import.meta.env.DEV) { (window as any).__yinjiMap = map; }
 
+    let zoomTimer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleRender = () => {
+      if (zoomTimer) clearTimeout(zoomTimer);
+      zoomTimer = setTimeout(() => renderAllRef.current(), 120);
+    };
+
+    map.on("zoom", scheduleRender);
+    map.once("load", () => {
+      addSatelliteBase(map);
+      map.setProjection({ type: "globe" });
+      renderAllRef.current();
+    });
+
     return () => {
+      map.off("zoom", scheduleRender);
+      if (zoomTimer) clearTimeout(zoomTimer);
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
       map.remove();
@@ -101,75 +180,86 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
     };
   }, []);
 
-  useEffect(() => {
+  // 每次渲染更新 renderAll 的最新实现
+  renderAllRef.current = () => {
     const map = mapRef.current;
     if (!map) return;
 
-    const renderMarkers = () => {
-      markersRef.current.forEach((marker) => marker.remove());
-      markersRef.current = [];
+    markersRef.current.forEach((marker) => marker.remove());
+    markersRef.current = [];
 
-      locations.forEach((location) => {
-        const coverId = covers[location.id] || location.coverPhotoId;
-        const orderedPhotos = [
-          location.photos.find((photo) => photo.id === coverId) || location.photos[0],
-          ...location.photos.filter((photo) => photo.id !== coverId)
-        ].slice(0, 3);
+    const zoom = map.getZoom();
+    const clusters = clusterLocations(locationsRef.current, zoom);
 
-        const element = document.createElement("div");
-        element.className = "photo-stack-marker";
-        element.setAttribute("aria-label", `${location.name}，${location.photos.length} 张照片`);
+    clusters.forEach((cluster) => {
+      const member = cluster.members[0];
+      const coverId = coversRef.current[member.id] || member.coverPhotoId;
+      const orderedPhotos = [
+        cluster.photos.find((photo) => photo.id === coverId) || cluster.photos[0],
+        ...cluster.photos.filter((photo) => photo.id !== coverId)
+      ].slice(0, 3);
 
-        const button = document.createElement("button");
-        button.className = "photo-stack";
-        button.type = "button";
+      const element = document.createElement("div");
+      element.className = "photo-stack-marker";
 
-        orderedPhotos
-          .slice()
-          .reverse()
-          .forEach((photo, reversedIndex) => {
-            const stackIndex = orderedPhotos.length - 1 - reversedIndex;
-            const card = document.createElement("span");
-            card.className = "photo-card";
-            card.style.setProperty("--stack-index", String(stackIndex));
-            card.innerHTML = `<img src="${photo.thumb}" alt="" />`;
-            button.appendChild(card);
-          });
+      const isCluster = cluster.members.length > 1;
+      const labelText = isCluster ? `${cluster.members.length} 个地点` : cluster.name;
 
-        const count = document.createElement("span");
-        count.className = "photo-count";
-        count.textContent = String(location.photos.length);
-        button.appendChild(count);
+      element.setAttribute("aria-label", `${labelText}，${cluster.photos.length} 张照片`);
 
-        const label = document.createElement("span");
-        label.className = "place-label";
-        label.textContent = location.name;
+      const button = document.createElement("button");
+      button.className = "photo-stack";
+      button.type = "button";
 
-        element.append(button, label);
-        button.addEventListener("click", (event) => {
-          event.stopPropagation();
-          onSelectRef.current(location);
+      orderedPhotos
+        .slice()
+        .reverse()
+        .forEach((photo, reversedIndex) => {
+          const stackIndex = orderedPhotos.length - 1 - reversedIndex;
+          const card = document.createElement("span");
+          card.className = "photo-card";
+          card.style.setProperty("--stack-index", String(stackIndex));
+          card.innerHTML = `<img src="${photo.thumb}" alt="" />`;
+          button.appendChild(card);
         });
 
-        const marker = new Marker({ element, anchor: "bottom" })
-          .setLngLat(location.coordinates)
-          .addTo(map);
-        marker.setOpacity(1, 0);
-        markersRef.current.push(marker);
+      const count = document.createElement("span");
+      count.className = "photo-count";
+      count.textContent = String(cluster.photos.length);
+      button.appendChild(count);
+
+      const label = document.createElement("span");
+      label.className = "place-label";
+      label.textContent = labelText;
+
+      element.append(button, label);
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (isCluster) {
+          map.flyTo({
+            center: cluster.coordinates,
+            zoom: Math.min(map.getZoom() + 2, 11),
+            duration: 700,
+            essential: true
+          });
+        } else {
+          onSelectRef.current(member);
+        }
       });
 
-    };
+      const marker = new Marker({ element, anchor: "bottom" })
+        .setLngLat(cluster.coordinates)
+        .addTo(map);
+      marker.setOpacity(1, 0);
+      markersRef.current.push(marker);
+    });
+  };
 
-    const renderMap = () => {
-      addSatelliteBase(map);
-      map.setProjection({ type: "globe" });
-      renderMarkers();
-    };
-
-    if (map.loaded()) {
-      renderMap();
-    } else {
-      map.once("load", renderMap);
+  // 数据或封面变化时重新渲染
+  useEffect(() => {
+    if (!mapRef.current) return;
+    if (mapRef.current.loaded()) {
+      renderAllRef.current();
     }
   }, [locations, covers]);
 

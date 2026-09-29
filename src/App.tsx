@@ -1,36 +1,65 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { GlobeMap } from "./components/GlobeMap";
 import { demoLocations, type Photo, type PhotoLocation } from "./data/demoPhotos";
+import { importPhotosFromFiles } from "./lib/importPhotos";
+
+type ImportStatus = { kind: "working" | "done" | "error"; text: string } | null;
 
 function App() {
   const [activeLocationId, setActiveLocationId] = useState<string>();
   const [coverOverrides, setCoverOverrides] = useState<Record<string, string>>({});
   const [activePhoto, setActivePhoto] = useState<Photo>();
   const [showGallery, setShowGallery] = useState(false);
+  const [importedLocations, setImportedLocations] = useState<PhotoLocation[]>([]);
+  const [importStatus, setImportStatus] = useState<ImportStatus>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const activeLocation = useMemo(
-    () => demoLocations.find((location) => location.id === activeLocationId),
-    [activeLocationId]
+  const locations = useMemo(
+    () => [...demoLocations, ...importedLocations],
+    [importedLocations]
   );
 
-  const allPhotos = useMemo(() => demoLocations.flatMap((location) => location.photos), []);
+  const activeLocation = useMemo(
+    () => locations.find((location) => location.id === activeLocationId),
+    [locations, activeLocationId]
+  );
+
+  const allPhotos = useMemo(() => locations.flatMap((location) => location.photos), [locations]);
 
   const coverId = activeLocation
     ? coverOverrides[activeLocation.id] || activeLocation.coverPhotoId
     : undefined;
 
-  const handleSelect = (location: PhotoLocation) => {
-    setActiveLocationId(location.id);
-  };
+  const handleSelect = (location: PhotoLocation) => setActiveLocationId(location.id);
 
-  const handleSetCover = (locationId: string, photoId: string) => {
+  const handleSetCover = (locationId: string, photoId: string) =>
     setCoverOverrides((current) => ({ ...current, [locationId]: photoId }));
+
+  const handleImportClick = () => fileInputRef.current?.click();
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setImportStatus({ kind: "working", text: `正在读取 ${files.length} 张照片的定位…` });
+    try {
+      const result = await importPhotosFromFiles(Array.from(files));
+      if (result.totalPhotos > 0) {
+        setImportedLocations((current) => [...current, ...result.locations]);
+      }
+      const parts: string[] = [`成功导入 ${result.totalPhotos} 张`];
+      if (result.skipped.length) parts.push(`${result.skipped.length} 张没有定位信息`);
+      if (result.failed.length) parts.push(`${result.failed.length} 张读取失败`);
+      setImportStatus({ kind: "done", text: parts.join("，") });
+    } catch {
+      setImportStatus({ kind: "error", text: "导入失败，请重试" });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   return (
     <main className="app-shell">
       <GlobeMap
-        locations={demoLocations}
+        locations={locations}
         covers={coverOverrides}
         activeLocationId={activeLocationId}
         onSelectLocation={handleSelect}
@@ -45,9 +74,27 @@ function App() {
           <span>Yinji</span>
         </div>
         <p>把走过的路，印在地球上。</p>
-        <button className="gallery-toggle" onClick={() => setShowGallery(true)}>相册</button>
-        <em>界面原型 · 示例照片</em>
+        <div className="brand-actions">
+          <button className="import-button" onClick={handleImportClick}>导入照片</button>
+          <button className="gallery-toggle" onClick={() => setShowGallery(true)}>相册</button>
+        </div>
+        <em>界面原型 · 示例照片 + 本地导入</em>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={(event) => handleFiles(event.target.files)}
+        />
       </header>
+
+      {importStatus && (
+        <div className={`import-toast ${importStatus.kind}`}>
+          {importStatus.kind === "working" ? "⏳ " : importStatus.kind === "done" ? "✅ " : "⚠️ "}
+          {importStatus.text}
+        </div>
+      )}
 
       <div className={`gallery-panel ${showGallery ? "is-open" : ""}`}>
         <div className="gallery-card">
@@ -68,6 +115,7 @@ function App() {
           </div>
         </div>
       </div>
+
       <div className="map-hint">
         <span>拖动地球</span>
         <span>滚轮缩放</span>

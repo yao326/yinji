@@ -63,3 +63,12 @@ button { color:inherit; font:inherit; }
 .gallery-photo img { display:block; width:100%; aspect-ratio:1/.8; object-fit:cover; }
 .gallery-photo span { display:block; padding:8px 10px 10px; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 @media(max-width:720px){ .gallery-toggle{top:9px;right:9px;padding:7px 11px}.gallery-card{padding:14px;border-radius:20px}.gallery-grid{grid-template-columns:repeat(3,1fr);gap:8px}.gallery-photo span{display:none} }
+.brand-actions { position:absolute; top:12px; right:12px; display:flex; gap:8px; }
+.brand-actions .gallery-toggle { position:static; }
+.import-button { padding:8px 14px; border:1px solid rgba(255,209,102,.5); border-radius:999px; color:#07111f; background:#ffd166; cursor:pointer; font-size:12px; font-weight:700; }
+.import-button:hover { background:#ffe08a; }
+.import-toast { position:absolute; z-index:25; left:50%; top:18px; transform:translateX(-50%); max-width:min(90vw,560px); padding:10px 16px; border:1px solid rgba(203,235,249,.22); border-radius:12px; color:#eaf7ff; background:rgba(5,12,22,.82); font-size:12px; text-align:center; backdrop-filter:blur(10px); }
+.import-toast.working { color:#ffe08a; }
+.import-toast.done { color:#9df0b3; }
+.import-toast.error { color:#ff9d9d; }
+@media(max-width:720px){ .brand-actions{ top:9px; right:9px; gap:6px; } .brand-actions .gallery-toggle{ padding:7px 11px; } .import-button{ padding:7px 11px; } }

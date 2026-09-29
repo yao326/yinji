@@ -8,7 +8,6 @@ type GlobeMapProps = {
   covers: Record<string, string>;
   activeLocationId?: string;
   onSelectLocation: (location: PhotoLocation) => void;
-  satellite?: boolean;
 };
 
 const mapStyle = import.meta.env.VITE_MAP_STYLE_URL || "https://tiles.openfreemap.org/styles/liberty";
@@ -19,8 +18,8 @@ function addSatelliteBase(map: MapLibreMap) {
   const style = map.getStyle();
   if (!style || !style.layers) return;
 
-  map.setPaintProperty("background", "background-color", "#dfe8f0");
-  map.setPaintProperty("background", "background-opacity", 1);
+  map.setPaintProperty("background", "background-color", "#05070d");
+  map.setPaintProperty("background", "background-opacity", 0);
 
   // 隐藏矢量填充，保留道路/地名和南北极的自然地球底图（避免极点黑圈）
   style.layers.forEach((layer: any) => {
@@ -51,39 +50,18 @@ function addSatelliteBase(map: MapLibreMap) {
   }
 }
 
-function setSatellite(map: MapLibreMap, on: boolean) {
-  if (on) {
-    if (!map.getSource("satellite")) addSatelliteBase(map);
-  } else {
-    if (map.getLayer("satellite-base")) map.removeLayer("satellite-base");
-    if (map.getSource("satellite")) map.removeSource("satellite");
-
-    const style = map.getStyle();
-    style?.layers?.forEach((layer: any) => {
-      if (layer.type === "fill") {
-        map.setPaintProperty(layer.id, "fill-opacity", 1);
-      }
-      if (layer.id === "natural_earth") {
-        map.setPaintProperty(layer.id, "raster-opacity", 0);
-      }
-    });
-  }
-}
-
-export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation, satellite = true }: GlobeMapProps) {
+export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation }: GlobeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
   const onSelectRef = useRef(onSelectLocation);
   const coversRef = useRef(covers);
   const locationsRef = useRef(locations);
-  const satelliteRef = useRef(satellite);
   const renderAllRef = useRef<() => void>(() => {});
 
   onSelectRef.current = onSelectLocation;
   coversRef.current = covers;
   locationsRef.current = locations;
-  satelliteRef.current = satellite;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -112,7 +90,7 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
     if (import.meta.env.DEV) { (window as any).__yinjiMap = map; }
 
     map.once("load", () => {
-      setSatellite(map, satelliteRef.current);
+      addSatelliteBase(map);
       map.setProjection({ type: "globe" });
       renderAllRef.current();
     });
@@ -190,13 +168,6 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
       renderAllRef.current();
     }
   }, [locations, covers]);
-
-  // 底图切换（卫星 / 简洁）
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !map.loaded()) return;
-    setSatellite(map, satellite);
-  }, [satellite]);
 
   useEffect(() => {
     if (!activeLocationId || !mapRef.current) return;

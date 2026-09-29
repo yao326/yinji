@@ -17,7 +17,6 @@ function App() {
   const [loadError, setLoadError] = useState(false);
   const [loadedCount, setLoadedCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [satellite, setSatellite] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -88,43 +87,43 @@ function App() {
 
   return (
     <main className="app-shell">
+      <div className="stars" aria-hidden="true" />
+
       <GlobeMap
         locations={locations}
         covers={coverOverrides}
         activeLocationId={activeLocationId}
         onSelectLocation={handleSelect}
-        satellite={satellite}
       />
 
-      <header className="brand-bar">
-        <div className="brand-mark" aria-hidden="true">
-          <span />
-        </div>
-        <div>
-          <strong>印迹</strong>
-          <span>Yinji</span>
-        </div>
-        <p>把走过的路，印在地球上。</p>
-        <em>照片只保存在本机</em>
-      </header>
-
-      <div className="corner-actions">
-        {menuOpen && (
-          <div className="actions-menu">
-            <button className="action-item import" onClick={handleImportClick}>导入</button>
-            <button className="action-item" onClick={() => { setShowGallery(true); setMenuOpen(false); }}>相册</button>
-            <button className="action-item" onClick={() => { setSatellite((v) => !v); setMenuOpen(false); }}>
-              {satellite ? "简洁地图" : "卫星地图"}
-            </button>
+      <div className="top-left">
+        <header className="brand-bar">
+          <div className="brand-mark" aria-hidden="true">
+            <span />
           </div>
-        )}
-        <button
-          className="actions-toggle"
-          onClick={() => setMenuOpen((v) => !v)}
-          aria-label={menuOpen ? "收起菜单" : "打开菜单"}
-        >
-          {menuOpen ? "×" : "＋"}
-        </button>
+          <div>
+            <strong>印迹</strong>
+            <span>Yinji</span>
+          </div>
+          <p>把走过的路，印在地球上。</p>
+          <em>照片只保存在本机</em>
+        </header>
+
+        <div className="quick-bar">
+          <button
+            className="quick-toggle"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label={menuOpen ? "收起" : "打开"}
+          >
+            {menuOpen ? "×" : "＋"}
+          </button>
+          {menuOpen && (
+            <div className="quick-menu">
+              <button className="action-item import" onClick={handleImportClick}>导入</button>
+              <button className="action-item" onClick={() => { setShowGallery(true); setMenuOpen(false); }}>相册</button>
+            </div>
+          )}
+        </div>
       </div>
 
       <input
@@ -156,7 +155,7 @@ function App() {
       {!loadingImported && !loadError && locations.length === 0 && (
         <div className="empty-state">
           <strong>还没有照片</strong>
-          <span>点右上角“＋”→“导入”添加照片。</span>
+          <span>点左上角“＋”→“导入”添加照片。</span>
         </div>
       )}
 

@@ -11,16 +11,6 @@ type GlobeMapProps = {
   satellite?: boolean;
 };
 
-type Cluster = {
-  id: string;
-  name: string;
-  country: string;
-  coordinates: [number, number];
-  coverPhotoId: string;
-  photos: PhotoLocation["photos"];
-  members: PhotoLocation[];
-};
-
 const mapStyle = import.meta.env.VITE_MAP_STYLE_URL || "https://tiles.openfreemap.org/styles/liberty";
 setWorkerUrl(maplibreWorkerUrl);
 
@@ -29,7 +19,7 @@ function addSatelliteBase(map: MapLibreMap) {
   const style = map.getStyle();
   if (!style || !style.layers) return;
 
-  map.setPaintProperty("background", "background-color", "#0b2438");
+  map.setPaintProperty("background", "background-color", "#dfe8f0");
   map.setPaintProperty("background", "background-opacity", 1);
 
   // 隐藏矢量填充，保留道路/地名和南北极的自然地球底图（避免极点黑圈）
@@ -80,57 +70,6 @@ function setSatellite(map: MapLibreMap, on: boolean) {
   }
 }
 
-// 两点近似距离（经纬度，考虑纬度对经度的压缩）
-function approxDistance(a: [number, number], b: [number, number]): number {
-  const midLat = ((a[1] + b[1]) / 2) * (Math.PI / 180);
-  const dLat = a[1] - b[1];
-  const dLng = (a[0] - b[0]) * Math.cos(midLat);
-  return Math.sqrt(dLat * dLat + dLng * dLng);
-}
-
-// 当前缩放级别下的合并半径（度）：zoom 越小合并越猛，zoom 越大越精细
-function mergeRadius(zoom: number): number {
-  // 只在标记真正重叠时才合并；全球视角下相距较远的城市保持分开
-  return 10 / Math.pow(2, zoom);
-}
-
-function clusterLocations(locations: PhotoLocation[], zoom: number): Cluster[] {
-  const radius = mergeRadius(zoom);
-  const groups: Cluster[] = [];
-
-  for (const loc of locations) {
-    let hit: Cluster | undefined;
-    for (const g of groups) {
-      if (approxDistance(g.coordinates, loc.coordinates) <= radius) {
-        hit = g;
-        break;
-      }
-    }
-
-    if (hit) {
-      hit.members.push(loc);
-      hit.photos.push(...loc.photos);
-      const n = hit.members.length;
-      hit.coordinates = [
-        (hit.coordinates[0] * (n - 1) + loc.coordinates[0]) / n,
-        (hit.coordinates[1] * (n - 1) + loc.coordinates[1]) / n
-      ];
-    } else {
-      groups.push({
-        id: loc.id,
-        name: loc.name,
-        country: loc.country,
-        coordinates: loc.coordinates,
-        coverPhotoId: loc.coverPhotoId,
-        photos: [...loc.photos],
-        members: [loc]
-      });
-    }
-  }
-
-  return groups;
-}
-
 export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation, satellite = true }: GlobeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -172,13 +111,6 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
     mapRef.current = map;
     if (import.meta.env.DEV) { (window as any).__yinjiMap = map; }
 
-    let zoomTimer: ReturnType<typeof setTimeout> | undefined;
-    const scheduleRender = () => {
-      if (zoomTimer) clearTimeout(zoomTimer);
-      zoomTimer = setTimeout(() => renderAllRef.current(), 120);
-    };
-
-    map.on("zoom", scheduleRender);
     map.once("load", () => {
       setSatellite(map, satelliteRef.current);
       map.setProjection({ type: "globe" });
@@ -186,8 +118,6 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
     });
 
     return () => {
-      map.off("zoom", scheduleRender);
-      if (zoomTimer) clearTimeout(zoomTimer);
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
       map.remove();
@@ -203,24 +133,16 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
 
-    const zoom = map.getZoom();
-    const clusters = clusterLocations(locationsRef.current, zoom);
-
-    clusters.forEach((cluster) => {
-      const member = cluster.members[0];
-      const coverId = coversRef.current[member.id] || member.coverPhotoId;
+    locationsRef.current.forEach((location) => {
+      const coverId = coversRef.current[location.id] || location.coverPhotoId;
       const orderedPhotos = [
-        cluster.photos.find((photo) => photo.id === coverId) || cluster.photos[0],
-        ...cluster.photos.filter((photo) => photo.id !== coverId)
+        location.photos.find((photo) => photo.id === coverId) || location.photos[0],
+        ...location.photos.filter((photo) => photo.id !== coverId)
       ].slice(0, 3);
 
       const element = document.createElement("div");
       element.className = "photo-stack-marker";
-
-      const isCluster = cluster.members.length > 1;
-      const labelText = isCluster ? `${cluster.members.length} 个地点` : cluster.name;
-
-      element.setAttribute("aria-label", `${labelText}，${cluster.photos.length} 张照片`);
+      element.setAttribute("aria-label", `${location.name}，${location.photos.length} 张照片`);
 
       const button = document.createElement("button");
       button.className = "photo-stack";
@@ -240,30 +162,21 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
 
       const count = document.createElement("span");
       count.className = "photo-count";
-      count.textContent = String(cluster.photos.length);
+      count.textContent = String(location.photos.length);
       button.appendChild(count);
 
       const label = document.createElement("span");
       label.className = "place-label";
-      label.textContent = labelText;
+      label.textContent = location.name;
 
       element.append(button, label);
       button.addEventListener("click", (event) => {
         event.stopPropagation();
-        if (isCluster) {
-          map.flyTo({
-            center: cluster.coordinates,
-            zoom: Math.min(map.getZoom() + 2, 11),
-            duration: 700,
-            essential: true
-          });
-        } else {
-          onSelectRef.current(member);
-        }
+        onSelectRef.current(location);
       });
 
       const marker = new Marker({ element, anchor: "bottom" })
-        .setLngLat(cluster.coordinates)
+        .setLngLat(location.coordinates)
         .addTo(map);
       marker.setOpacity(1, 0);
       markersRef.current.push(marker);
@@ -292,9 +205,9 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
 
     mapRef.current.flyTo({
       center: location.coordinates,
-      zoom: 5.2,
-      pitch: 42,
-      duration: 950,
+      zoom: 4.5,
+      pitch: 35,
+      duration: 850,
       essential: true
     });
   }, [activeLocationId, locations]);

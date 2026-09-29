@@ -8,6 +8,7 @@ type GlobeMapProps = {
   covers: Record<string, string>;
   activeLocationId?: string;
   onSelectLocation: (location: PhotoLocation) => void;
+  satellite?: boolean;
 };
 
 type Cluster = {
@@ -57,6 +58,25 @@ function addSatelliteBase(map: MapLibreMap) {
     map.addLayer({ id: "satellite-base", type: "raster", source: "satellite" }, beforeLayer);
   } else {
     map.addLayer({ id: "satellite-base", type: "raster", source: "satellite" });
+  }
+}
+
+function setSatellite(map: MapLibreMap, on: boolean) {
+  if (on) {
+    if (!map.getSource("satellite")) addSatelliteBase(map);
+  } else {
+    if (map.getLayer("satellite-base")) map.removeLayer("satellite-base");
+    if (map.getSource("satellite")) map.removeSource("satellite");
+
+    const style = map.getStyle();
+    style?.layers?.forEach((layer: any) => {
+      if (layer.type === "fill") {
+        map.setPaintProperty(layer.id, "fill-opacity", 1);
+      }
+      if (layer.id === "natural_earth") {
+        map.setPaintProperty(layer.id, "raster-opacity", 0);
+      }
+    });
   }
 }
 
@@ -111,18 +131,20 @@ function clusterLocations(locations: PhotoLocation[], zoom: number): Cluster[] {
   return groups;
 }
 
-export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation }: GlobeMapProps) {
+export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation, satellite = true }: GlobeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
   const onSelectRef = useRef(onSelectLocation);
   const coversRef = useRef(covers);
   const locationsRef = useRef(locations);
+  const satelliteRef = useRef(satellite);
   const renderAllRef = useRef<() => void>(() => {});
 
   onSelectRef.current = onSelectLocation;
   coversRef.current = covers;
   locationsRef.current = locations;
+  satelliteRef.current = satellite;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -158,7 +180,7 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
 
     map.on("zoom", scheduleRender);
     map.once("load", () => {
-      addSatelliteBase(map);
+      setSatellite(map, satelliteRef.current);
       map.setProjection({ type: "globe" });
       renderAllRef.current();
     });
@@ -255,6 +277,13 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
       renderAllRef.current();
     }
   }, [locations, covers]);
+
+  // 底图切换（卫星 / 简洁）
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.loaded()) return;
+    setSatellite(map, satellite);
+  }, [satellite]);
 
   useEffect(() => {
     if (!activeLocationId || !mapRef.current) return;

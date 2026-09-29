@@ -17,6 +17,7 @@ function App() {
   const [loadError, setLoadError] = useState(false);
   const [loadedCount, setLoadedCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [satellite, setSatellite] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -92,6 +93,7 @@ function App() {
         covers={coverOverrides}
         activeLocationId={activeLocationId}
         onSelectLocation={handleSelect}
+        satellite={satellite}
       />
 
       <header className="brand-bar">
@@ -111,6 +113,9 @@ function App() {
           <div className="actions-menu">
             <button className="action-item import" onClick={handleImportClick}>导入</button>
             <button className="action-item" onClick={() => { setShowGallery(true); setMenuOpen(false); }}>相册</button>
+            <button className="action-item" onClick={() => { setSatellite((v) => !v); setMenuOpen(false); }}>
+              {satellite ? "简洁地图" : "卫星地图"}
+            </button>
           </div>
         )}
         <button

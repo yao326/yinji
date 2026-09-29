@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Map as MapLibreMap, Marker, NavigationControl, AttributionControl, setWorkerUrl } from "maplibre-gl";
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
+import type { StyleSpecification } from "maplibre-gl";
 import type { PhotoLocation } from "../data/demoPhotos";
 
 type GlobeMapProps = {
@@ -10,7 +11,21 @@ type GlobeMapProps = {
   onSelectLocation: (location: PhotoLocation) => void;
 };
 
-const mapStyle = import.meta.env.VITE_MAP_STYLE_URL || "https://demotiles.maplibre.org/style.json";
+const satelliteStyle: StyleSpecification = {
+  version: 8,
+  sources: {
+    esri: {
+      type: "raster",
+      tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+      tileSize: 256,
+      attribution: "Imagery © Esri, Maxar, Earthstar Geographics"
+    }
+  },
+  layers: [
+    { id: "satellite", type: "raster", source: "esri" }
+  ]
+};
+const mapStyle: StyleSpecification | string = import.meta.env.VITE_MAP_STYLE_URL || satelliteStyle;
 setWorkerUrl(maplibreWorkerUrl);
 
 export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation }: GlobeMapProps) {
@@ -41,12 +56,13 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
     map.addControl(
       new AttributionControl({
         compact: true,
-        customAttribution: "© OpenStreetMap contributors"
+        customAttribution: "Imagery © Esri, Maxar, Earthstar Geographics"
       }),
       "bottom-left"
     );
 
     mapRef.current = map;
+    if (import.meta.env.DEV) { (window as any).__yinjiMap = map; }
 
     return () => {
       markersRef.current.forEach((marker) => marker.remove());

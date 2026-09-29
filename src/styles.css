@@ -49,6 +49,3 @@ button { color:inherit; font:inherit; }
 .viewer-card h2,.viewer-card p { margin:0; }
 .viewer-card p { margin-top:4px; color:#8ca2b4; }
 @media(max-width:720px){ .brand-bar{top:10px;left:10px;grid-template-columns:42px auto;padding:9px 12px 9px 9px}.brand-mark{width:42px;height:42px;border-radius:14px}.brand-mark span{left:16px;top:6px;height:30px}.brand-bar strong{font-size:18px}.brand-bar p{font-size:10px}.map-hint{display:none}.photo-stack-marker{width:62px;height:80px}.photo-stack{height:66px}.place-label{bottom:-24px;font-size:10px}.location-panel{top:auto;left:10px;right:10px;bottom:10px;width:auto;max-height:68vh;padding:20px;border-radius:26px;transform:translateY(calc(100% + 20px))}.location-panel.is-open{transform:translateY(0)}.panel-heading h1{font-size:32px}.photo-list{grid-template-columns:repeat(3,1fr);gap:8px}.photo-open>span{padding:7px}.photo-open strong{font-size:11px}.photo-open small{display:none} }
-.pole-cap-marker { position:absolute; left:0; top:0; width:120px; height:120px; border-radius:50%; pointer-events:none; }
-.pole-cap-marker.north { background:radial-gradient(circle, rgba(167,186,195,.98) 0%, rgba(167,186,195,.75) 45%, rgba(167,186,195,0) 72%); }
-.pole-cap-marker.south { background:radial-gradient(circle, rgba(232,238,241,.98) 0%, rgba(232,238,241,.75) 45%, rgba(232,238,241,0) 72%); }

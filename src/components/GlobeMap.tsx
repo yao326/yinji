@@ -149,18 +149,6 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
         markersRef.current.push(marker);
       });
 
-      const addPoleCover = (lng: number, lat: number, className: string) => {
-        const pole = document.createElement("div");
-        pole.className = `pole-cap-marker ${className}`;
-        const poleMarker = new Marker({ element: pole, anchor: "center" })
-          .setLngLat([lng, lat])
-          .addTo(map);
-        poleMarker.setOpacity(1, 1);
-        markersRef.current.push(poleMarker);
-      };
-
-      addPoleCover(0, 90, "north");
-      addPoleCover(0, -90, "south");
     };
 
     const renderMap = () => {

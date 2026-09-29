@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { Map as MapLibreMap, Marker, NavigationControl, AttributionControl } from "maplibre-gl";
+import { Map as MapLibreMap, Marker, NavigationControl, AttributionControl, setWorkerUrl } from "maplibre-gl";
+import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import type { PhotoLocation } from "../data/demoPhotos";
 
 type GlobeMapProps = {
@@ -10,6 +11,7 @@ type GlobeMapProps = {
 };
 
 const mapStyle = import.meta.env.VITE_MAP_STYLE_URL || "https://demotiles.maplibre.org/style.json";
+setWorkerUrl(maplibreWorkerUrl);
 
 export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation }: GlobeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -34,7 +36,6 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
       pitch: 18,
       attributionControl: false,
     });
-    map.setProjection({ type: "globe" });
 
     map.addControl(new NavigationControl({ visualizePitch: true }), "bottom-right");
     map.addControl(
@@ -112,10 +113,15 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
       });
     };
 
-    if (map.loaded()) {
+    const renderMap = () => {
+      map.setProjection({ type: "globe" });
       renderMarkers();
+    };
+
+    if (map.loaded()) {
+      renderMap();
     } else {
-      map.once("load", renderMarkers);
+      map.once("load", renderMap);
     }
   }, [locations, covers]);
 

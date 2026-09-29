@@ -6,11 +6,14 @@ function App() {
   const [activeLocationId, setActiveLocationId] = useState<string>();
   const [coverOverrides, setCoverOverrides] = useState<Record<string, string>>({});
   const [activePhoto, setActivePhoto] = useState<Photo>();
+  const [showGallery, setShowGallery] = useState(false);
 
   const activeLocation = useMemo(
     () => demoLocations.find((location) => location.id === activeLocationId),
     [activeLocationId]
   );
+
+  const allPhotos = useMemo(() => demoLocations.flatMap((location) => location.photos), []);
 
   const coverId = activeLocation
     ? coverOverrides[activeLocation.id] || activeLocation.coverPhotoId
@@ -42,9 +45,29 @@ function App() {
           <span>Yinji</span>
         </div>
         <p>把走过的路，印在地球上。</p>
+        <button className="gallery-toggle" onClick={() => setShowGallery(true)}>相册</button>
         <em>界面原型 · 示例照片</em>
       </header>
 
+      <div className={`gallery-panel ${showGallery ? "is-open" : ""}`}>
+        <div className="gallery-card">
+          <div className="gallery-head">
+            <div>
+              <span>全部照片</span>
+              <h2>{allPhotos.length} 张</h2>
+            </div>
+            <button className="gallery-close" onClick={() => setShowGallery(false)} aria-label="关闭相册">×</button>
+          </div>
+          <div className="gallery-grid">
+            {allPhotos.map((photo) => (
+              <button className="gallery-photo" key={photo.id} onClick={() => setActivePhoto(photo)}>
+                <img src={photo.image} alt={photo.title} />
+                <span>{photo.title}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
       <div className="map-hint">
         <span>拖动地球</span>
         <span>滚轮缩放</span>

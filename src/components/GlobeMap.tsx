@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Map as MapLibreMap, Marker, NavigationControl, AttributionControl, setWorkerUrl } from "maplibre-gl";
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
-import type { PhotoLocation } from "../data/demoPhotos";
+import type { PhotoLocation } from "../data/types";
 
 type GlobeMapProps = {
   locations: PhotoLocation[];
@@ -20,14 +20,23 @@ function addSatelliteBase(map: MapLibreMap) {
   map.setPaintProperty("background", "background-color", "#0b2438");
   map.setPaintProperty("background", "background-opacity", 1);
 
+  // 隐藏矢量填充层，减少每帧渲染负担（保留道路/地名）
   style.layers.forEach((layer: any) => {
     if (layer.type === "fill") {
-      map.setPaintProperty(layer.id, "fill-opacity", 0);
-    }
-    if (layer.id === "natural_earth") {
-      map.setPaintProperty(layer.id, "raster-opacity", 1);
+      map.setLayoutProperty(layer.id, "visibility", "none");
     }
   });
+
+  // 移除内置自然地球底图（已被卫星影像替代），少加载一整套瓦片
+  try {
+    const natural = style.layers.filter((layer) => layer.id === "natural_earth") as any[];
+    for (const layer of natural) {
+      if (map.getLayer(layer.id)) map.removeLayer(layer.id);
+      if (layer.source && map.getSource(layer.source)) map.removeSource(layer.source);
+    }
+  } catch {
+    // 忽略：删不掉也不影响使用
+  }
 
   map.addSource("satellite", {
     type: "raster",
@@ -42,9 +51,9 @@ function addSatelliteBase(map: MapLibreMap) {
   )?.id;
 
   if (beforeLayer) {
-    map.addLayer({ id: "satellite-base", type: "raster", source: "satellite" }, beforeLayer);
+    map.addLayer({ id: "satellite-base", type: "raster", source: "satellite", paint: { "raster-fade-duration": 0 } }, beforeLayer);
   } else {
-    map.addLayer({ id: "satellite-base", type: "raster", source: "satellite" });
+    map.addLayer({ id: "satellite-base", type: "raster", source: "satellite", paint: { "raster-fade-duration": 0 } });
   }
 
 }
@@ -123,7 +132,7 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
             const card = document.createElement("span");
             card.className = "photo-card";
             card.style.setProperty("--stack-index", String(stackIndex));
-            card.innerHTML = `<img src="${photo.image}" alt="" />`;
+            card.innerHTML = `<img src="${photo.thumb}" alt="" />`;
             button.appendChild(card);
           });
 

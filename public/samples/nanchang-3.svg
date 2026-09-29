@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
-<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#19314d"/><stop offset=".58" stop-color="#d46b66"/><stop offset="1" stop-color="#07111f"/></linearGradient><linearGradient id="l" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d46b66" stop-opacity=".9"/><stop offset="1" stop-color="#07111f"/></linearGradient></defs>
-<rect width="800" height="600" fill="url(#s)"/><circle cx="610" cy="155" r="72" fill="#f2a65a" opacity=".88"/>
-<path d="M0 425 150 310 265 400 390 275 520 390 660 290 800 385V600H0Z" fill="url(#l)"/><path d="M0 474 140 405 270 455 420 372 560 466 690 390 800 430V600H0Z" fill="#07111f" opacity=".72"/>
-<path d="M88 520c136-6 198-86 312-72 90 11 135 72 312 53" fill="none" stroke="#f6f0d5" stroke-opacity=".38" stroke-width="12" stroke-linecap="round"/>
-<text x="44" y="70" fill="#f8fbff" font-family="sans-serif" font-size="34" font-weight="700">夏天的街</text><text x="46" y="104" fill="#f8fbff" opacity=".6" font-family="sans-serif" font-size="15">YINJI SAMPLE PHOTO</text></svg>

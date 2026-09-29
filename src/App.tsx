@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GlobeMap } from "./components/GlobeMap";
-import { demoLocations, type Photo, type PhotoLocation } from "./data/demoPhotos";
+import type { Photo, PhotoLocation } from "./data/types";
 import { importPhotosFromFiles } from "./lib/importPhotos";
 import { loadImported, saveImported } from "./lib/store";
 
@@ -13,19 +13,32 @@ function App() {
   const [showGallery, setShowGallery] = useState(false);
   const [importedLocations, setImportedLocations] = useState<PhotoLocation[]>([]);
   const [importStatus, setImportStatus] = useState<ImportStatus>(null);
+  const [loadingImported, setLoadingImported] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    loadImported()
-      .then(setImportedLocations)
-      .catch(() => {});
+    let cancelled = false;
+    setLoadingImported(true);
+    setLoadError(false);
+
+    loadImported((batch) => {
+      if (!cancelled) setImportedLocations((current) => [...current, ...batch]);
+    })
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingImported(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const locations = useMemo(
-    () => [...demoLocations, ...importedLocations],
-    [importedLocations]
-  );
+  const locations = importedLocations;
 
   const activeLocation = useMemo(
     () => locations.find((location) => location.id === activeLocationId),
@@ -86,7 +99,7 @@ function App() {
           <span>Yinji</span>
         </div>
         <p>把走过的路，印在地球上。</p>
-        <em>界面原型 · 示例照片 + 本地导入</em>
+        <em>照片只保存在本机</em>
       </header>
 
       <div className="corner-actions">
@@ -121,24 +134,41 @@ function App() {
         </div>
       )}
 
-      <div className={`gallery-panel ${showGallery ? "is-open" : ""}`}>
-        <div className="gallery-card">
-          <div className="gallery-head">
-            <div>
-              <span>全部照片</span>
-              <h2>{allPhotos.length} 张</h2>
-            </div>
-            <button className="gallery-close" onClick={() => setShowGallery(false)} aria-label="关闭相册">×</button>
-          </div>
-          <div className="gallery-grid">
-            {allPhotos.map((photo) => (
-              <button className="gallery-photo" key={photo.id} onClick={() => setActivePhoto(photo)}>
-                <img src={photo.image} alt={photo.title} />
-                <span>{photo.title}</span>
-              </button>
-            ))}
-          </div>
+      {loadingImported && !importStatus && (
+        <div className="import-toast working">⏳ 正在载入并转换照片，首次使用 iPhone 照片会稍慢…</div>
+      )}
+
+      {loadError && !importStatus && (
+        <div className="import-toast error">⚠️ 本机照片读取失败，请刷新页面重试</div>
+      )}
+
+      {!loadingImported && !loadError && locations.length === 0 && (
+        <div className="empty-state">
+          <strong>还没有照片</strong>
+          <span>点右上角“＋”→“导入”添加照片。</span>
         </div>
+      )}
+
+      <div className={`gallery-panel ${showGallery ? "is-open" : ""}`}>
+        {showGallery && (
+          <div className="gallery-card">
+            <div className="gallery-head">
+              <div>
+                <span>全部照片</span>
+                <h2>{allPhotos.length} 张</h2>
+              </div>
+              <button className="gallery-close" onClick={() => setShowGallery(false)} aria-label="关闭相册">×</button>
+            </div>
+            <div className="gallery-grid">
+              {allPhotos.map((photo) => (
+                <button className="gallery-photo" key={photo.id} onClick={() => setActivePhoto(photo)}>
+                  <img src={photo.thumb} alt={photo.title} loading="lazy" decoding="async" />
+                  <span>{photo.title}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="map-hint">
@@ -166,7 +196,7 @@ function App() {
                 return (
                   <article className={`photo-tile ${isCover ? "is-cover" : ""}`} key={photo.id}>
                     <button className="photo-open" onClick={() => setActivePhoto(photo)}>
-                      <img src={photo.image} alt={photo.title} />
+                      <img src={photo.thumb} alt={photo.title} loading="lazy" decoding="async" />
                       <span>
                         <strong>{photo.title}</strong>
                         <small>{photo.date}</small>

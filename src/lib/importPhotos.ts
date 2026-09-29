@@ -1,6 +1,6 @@
 import exifr from "exifr";
-import type { Photo, PhotoLocation } from "../data/demoPhotos";
-import type { StoredLocation } from "./store";
+import type { PhotoLocation, StoredLocation } from "../data/types";
+import { toDisplayBlob, toThumbBlob } from "./displayImage";
 
 export type ImportResult = {
   locations: PhotoLocation[];
@@ -46,7 +46,14 @@ function runId(): string {
 }
 
 export async function importPhotosFromFiles(files: File[]): Promise<ImportResult> {
-  type Parsed = { id: string; title: string; date: string; file: File; coordinates: [number, number] };
+  type Parsed = {
+    id: string;
+    title: string;
+    date: string;
+    blob: Blob;
+    thumbBlob: Blob;
+    coordinates: [number, number];
+  };
   const parsed: Parsed[] = [];
   const skipped: string[] = [];
   const failed: string[] = [];
@@ -66,11 +73,14 @@ export async function importPhotosFromFiles(files: File[]): Promise<ImportResult
         toIsoDate(meta?.ModifyDate) ||
         new Date(file.lastModified).toISOString().slice(0, 10);
 
+      const blob = await toDisplayBlob(file);
+
       parsed.push({
         id: `${run}-${parsed.length + 1}`,
         title: file.name.replace(/\.[^.]+$/, ""),
         date,
-        file,
+        blob,
+        thumbBlob: await toThumbBlob(blob),
         coordinates: [gps.longitude, gps.latitude],
       });
     } catch {
@@ -109,7 +119,8 @@ export async function importPhotosFromFiles(files: File[]): Promise<ImportResult
       photos: group.photos.map((p) => ({
         id: p.id,
         title: p.title,
-        image: URL.createObjectURL(p.file),
+        image: URL.createObjectURL(p.blob),
+        thumb: URL.createObjectURL(p.thumbBlob),
         date: p.date,
       })),
     });
@@ -124,7 +135,8 @@ export async function importPhotosFromFiles(files: File[]): Promise<ImportResult
         id: p.id,
         title: p.title,
         date: p.date,
-        blob: p.file,
+        blob: p.blob,
+        thumbBlob: p.thumbBlob,
       })),
     });
   }

@@ -1,20 +1,5 @@
-import type { PhotoLocation } from "../data/demoPhotos";
-
-export type StoredPhoto = {
-  id: string;
-  title: string;
-  date: string;
-  blob: Blob;
-};
-
-export type StoredLocation = {
-  id: string;
-  name: string;
-  country: string;
-  coordinates: [number, number];
-  coverPhotoId: string;
-  photos: StoredPhoto[];
-};
+import type { PhotoLocation, StoredLocation } from "../data/types";
+import { toDisplayBlob, toThumbBlob } from "./displayImage";
 
 const DB_NAME = "yinji";
 const STORE = "locations";
@@ -34,40 +19,119 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
+function readStoredLocations(db: IDBDatabase): Promise<StoredLocation[]> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readonly");
+    const request = tx.objectStore(STORE).openCursor();
+    const locations: StoredLocation[] = [];
+
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) return;
+      locations.push(cursor.value as StoredLocation);
+      cursor.continue();
+    };
+    request.onerror = () => reject(request.error);
+    tx.oncomplete = () => resolve(locations);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error ?? new Error("读取本地照片库失败"));
+  });
+}
+
+async function toPhotoLocation(location: StoredLocation): Promise<{
+  location: PhotoLocation;
+  changed: boolean;
+}> {
+  let changed = false;
+  const photos: PhotoLocation["photos"] = [];
+
+  for (const photo of location.photos) {
+    const displayBlob = await toDisplayBlob(photo.blob);
+    if (displayBlob !== photo.blob) {
+      photo.blob = displayBlob;
+      changed = true;
+    }
+
+    let thumbBlob = photo.thumbBlob;
+    if (!thumbBlob) {
+      thumbBlob = await toThumbBlob(displayBlob);
+      photo.thumbBlob = thumbBlob;
+      changed = true;
+    }
+
+    photos.push({
+      id: photo.id,
+      title: photo.title,
+      image: URL.createObjectURL(displayBlob),
+      thumb: URL.createObjectURL(thumbBlob),
+      date: photo.date
+    });
+  }
+
+  return {
+    changed,
+    location: {
+      id: location.id,
+      name: location.name,
+      country: location.country,
+      coordinates: location.coordinates,
+      coverPhotoId: location.coverPhotoId,
+      photos
+    }
+  };
+}
+
 export async function saveImported(locations: StoredLocation[]): Promise<void> {
   const db = await openDb();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction(STORE, "readwrite");
     const store = tx.objectStore(STORE);
-    for (const loc of locations) store.put(loc);
+    for (const location of locations) store.put(location);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
   db.close();
 }
 
-export async function loadImported(): Promise<PhotoLocation[]> {
+export async function loadImported(
+  onBatch?: (locations: PhotoLocation[]) => void
+): Promise<PhotoLocation[]> {
   const db = await openDb();
-  const stored: StoredLocation[] = await new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, "readonly");
-    const req = tx.objectStore(STORE).getAll();
-    req.onsuccess = () => resolve(req.result as StoredLocation[]);
-    req.onerror = () => reject(req.error);
-  });
-  db.close();
-  return stored.map((loc) => ({
-    id: loc.id,
-    name: loc.name,
-    country: loc.country,
-    coordinates: loc.coordinates,
-    coverPhotoId: loc.coverPhotoId,
-    photos: loc.photos.map((p) => ({
-      id: p.id,
-      title: p.title,
-      image: URL.createObjectURL(p.blob),
-      date: p.date,
-    })),
-  }));
+  let stored: StoredLocation[] = [];
+
+  try {
+    stored = await readStoredLocations(db);
+  } finally {
+    db.close();
+  }
+
+  const locations: PhotoLocation[] = [];
+  let batch: PhotoLocation[] = [];
+
+  const flush = () => {
+    if (!batch.length) return;
+    const ready = batch;
+    batch = [];
+    try {
+      onBatch?.(ready);
+    } catch {
+      // Loading should continue even if the UI callback fails.
+    }
+  };
+
+  for (const storedLocation of stored) {
+    const result = await toPhotoLocation(storedLocation);
+    locations.push(result.location);
+    batch.push(result.location);
+
+    if (result.changed) {
+      await saveImported([storedLocation]);
+    }
+    if (batch.length >= 2) flush();
+  }
+
+  flush();
+  return locations;
 }
 
 export async function clearImported(): Promise<void> {

@@ -6,4 +6,5 @@ dist/
 .DS_Store
 Thumbs.db
 .vscode/
-.idea/debug-*.png
+.idea/
+debug-*.png

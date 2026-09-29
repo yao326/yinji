@@ -31,23 +31,15 @@ function addSatelliteBase(map: MapLibreMap) {
   map.setPaintProperty("background", "background-color", "#0b2438");
   map.setPaintProperty("background", "background-opacity", 1);
 
-  // 隐藏矢量填充层，减少每帧渲染负担（保留道路/地名）
+  // 隐藏矢量填充，保留道路/地名和南北极的自然地球底图（避免极点黑圈）
   style.layers.forEach((layer: any) => {
     if (layer.type === "fill") {
-      map.setLayoutProperty(layer.id, "visibility", "none");
+      map.setPaintProperty(layer.id, "fill-opacity", 0);
+    }
+    if (layer.id === "natural_earth") {
+      map.setPaintProperty(layer.id, "raster-opacity", 1);
     }
   });
-
-  // 移除内置自然地球底图（已被卫星影像替代），少加载一整套瓦片
-  try {
-    const natural = style.layers.filter((layer) => layer.id === "natural_earth") as any[];
-    for (const layer of natural) {
-      if (map.getLayer(layer.id)) map.removeLayer(layer.id);
-      if (layer.source && map.getSource(layer.source)) map.removeSource(layer.source);
-    }
-  } catch {
-    // 忽略：删不掉也不影响使用
-  }
 
   map.addSource("satellite", {
     type: "raster",
@@ -62,9 +54,9 @@ function addSatelliteBase(map: MapLibreMap) {
   )?.id;
 
   if (beforeLayer) {
-    map.addLayer({ id: "satellite-base", type: "raster", source: "satellite", paint: { "raster-fade-duration": 0 } }, beforeLayer);
+    map.addLayer({ id: "satellite-base", type: "raster", source: "satellite" }, beforeLayer);
   } else {
-    map.addLayer({ id: "satellite-base", type: "raster", source: "satellite", paint: { "raster-fade-duration": 0 } });
+    map.addLayer({ id: "satellite-base", type: "raster", source: "satellite" });
   }
 }
 
@@ -78,7 +70,8 @@ function approxDistance(a: [number, number], b: [number, number]): number {
 
 // 当前缩放级别下的合并半径（度）：zoom 越小合并越猛，zoom 越大越精细
 function mergeRadius(zoom: number): number {
-  return 30 / Math.pow(2, zoom);
+  // 只在标记真正重叠时才合并；全球视角下相距较远的城市保持分开
+  return 10 / Math.pow(2, zoom);
 }
 
 function clusterLocations(locations: PhotoLocation[], zoom: number): Cluster[] {

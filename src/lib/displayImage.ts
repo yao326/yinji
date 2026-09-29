@@ -29,19 +29,14 @@ async function normalizeToDecodable(blob: Blob): Promise<Blob> {
   }
 }
 
-async function downscale(blob: Blob, maxSize: number, quality: number): Promise<Blob> {
-  let bitmap: ImageBitmap;
-  try {
-    bitmap = await createImageBitmap(blob);
-  } catch {
-    return blob;
-  }
-
+async function renderScaled(
+  bitmap: ImageBitmap,
+  original: Blob,
+  maxSize: number,
+  quality: number
+): Promise<Blob> {
   const longest = Math.max(bitmap.width, bitmap.height);
-  if (longest <= maxSize) {
-    bitmap.close();
-    return blob;
-  }
+  if (longest <= maxSize) return original;
 
   const scale = maxSize / longest;
   const width = Math.max(1, Math.round(bitmap.width * scale));
@@ -51,29 +46,37 @@ async function downscale(blob: Blob, maxSize: number, quality: number): Promise<
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    bitmap.close();
-    return blob;
-  }
+  if (!ctx) return original;
 
   ctx.drawImage(bitmap, 0, 0, width, height);
-  bitmap.close();
-
   const converted = await new Promise<Blob | null>((resolve) => {
     canvas.toBlob(resolve, "image/jpeg", quality);
   });
-
-  return converted ?? blob;
+  return converted ?? original;
 }
 
-// 看图用：最长边压到 1600，兼顾清晰度和流畅度
+// 一次解码，同时生成「看图用」和「缩略图」两个尺寸，迁移更快
+export async function toDisplayAndThumb(blob: Blob): Promise<{ display: Blob; thumb: Blob }> {
+  const decodable = await normalizeToDecodable(blob);
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(decodable);
+  } catch {
+    return { display: decodable, thumb: decodable };
+  }
+
+  const display = await renderScaled(bitmap, decodable, 1600, 0.85);
+  const thumb = await renderScaled(bitmap, decodable, 480, 0.8);
+  bitmap.close();
+  return { display, thumb };
+}
+
 export async function toDisplayBlob(blob: Blob): Promise<Blob> {
-  const decodable = await normalizeToDecodable(blob);
-  return downscale(decodable, 1600, 0.85);
+  const { display } = await toDisplayAndThumb(blob);
+  return display;
 }
 
-// 地球卡片 / 相册缩略图：最长边 480，显著减少内存和卡顿
 export async function toThumbBlob(blob: Blob): Promise<Blob> {
-  const decodable = await normalizeToDecodable(blob);
-  return downscale(decodable, 480, 0.8);
+  const { thumb } = await toDisplayAndThumb(blob);
+  return thumb;
 }

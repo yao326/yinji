@@ -1,6 +1,6 @@
 import exifr from "exifr";
 import type { PhotoLocation, StoredLocation } from "../data/types";
-import { toDisplayBlob, toThumbBlob } from "./displayImage";
+import { toDisplayAndThumb } from "./displayImage";
 
 export type ImportResult = {
   locations: PhotoLocation[];
@@ -73,14 +73,14 @@ export async function importPhotosFromFiles(files: File[]): Promise<ImportResult
         toIsoDate(meta?.ModifyDate) ||
         new Date(file.lastModified).toISOString().slice(0, 10);
 
-      const blob = await toDisplayBlob(file);
+      const { display, thumb } = await toDisplayAndThumb(file);
 
       parsed.push({
         id: `${run}-${parsed.length + 1}`,
         title: file.name.replace(/\.[^.]+$/, ""),
         date,
-        blob,
-        thumbBlob: await toThumbBlob(blob),
+        blob: display,
+        thumbBlob: thumb,
         coordinates: [gps.longitude, gps.latitude],
       });
     } catch {

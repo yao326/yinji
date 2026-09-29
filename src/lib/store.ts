@@ -1,5 +1,5 @@
 import type { PhotoLocation, StoredLocation } from "../data/types";
-import { toDisplayBlob, toThumbBlob } from "./displayImage";
+import { toDisplayAndThumb } from "./displayImage";
 
 const DB_NAME = "yinji";
 const STORE = "locations";
@@ -46,24 +46,38 @@ async function toPhotoLocation(location: StoredLocation): Promise<{
   const photos: PhotoLocation["photos"] = [];
 
   for (const photo of location.photos) {
-    const displayBlob = await toDisplayBlob(photo.blob);
-    if (displayBlob !== photo.blob) {
-      photo.blob = displayBlob;
-      changed = true;
+    const jpegLike =
+      photo.blob.type === "image/jpeg" ||
+      photo.blob.type === "image/png" ||
+      photo.blob.type === "image/webp";
+
+    // 已处理过（有缩略图且主图已压缩）就直接用，避免每次打开都重新解码
+    if (photo.thumbBlob && jpegLike) {
+      photos.push({
+        id: photo.id,
+        title: photo.title,
+        image: URL.createObjectURL(photo.blob),
+        thumb: URL.createObjectURL(photo.thumbBlob),
+        date: photo.date
+      });
+      continue;
     }
 
-    let thumbBlob = photo.thumbBlob;
-    if (!thumbBlob) {
-      thumbBlob = await toThumbBlob(displayBlob);
-      photo.thumbBlob = thumbBlob;
+    const { display, thumb } = await toDisplayAndThumb(photo.blob);
+    if (display !== photo.blob) {
+      photo.blob = display;
+      changed = true;
+    }
+    if (!photo.thumbBlob) {
+      photo.thumbBlob = thumb;
       changed = true;
     }
 
     photos.push({
       id: photo.id,
       title: photo.title,
-      image: URL.createObjectURL(displayBlob),
-      thumb: URL.createObjectURL(thumbBlob),
+      image: URL.createObjectURL(photo.blob),
+      thumb: URL.createObjectURL(photo.thumbBlob as Blob),
       date: photo.date
     });
   }

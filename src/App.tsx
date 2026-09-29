@@ -15,6 +15,7 @@ function App() {
   const [importStatus, setImportStatus] = useState<ImportStatus>(null);
   const [loadingImported, setLoadingImported] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [loadedCount, setLoadedCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -24,7 +25,10 @@ function App() {
     setLoadError(false);
 
     loadImported((batch) => {
-      if (!cancelled) setImportedLocations((current) => [...current, ...batch]);
+      if (!cancelled) {
+        setImportedLocations((current) => [...current, ...batch]);
+        setLoadedCount((count) => count + batch.reduce((sum, loc) => sum + loc.photos.length, 0));
+      }
     })
       .catch(() => {
         if (!cancelled) setLoadError(true);
@@ -135,7 +139,9 @@ function App() {
       )}
 
       {loadingImported && !importStatus && (
-        <div className="import-toast working">⏳ 正在载入并转换照片，首次使用 iPhone 照片会稍慢…</div>
+        <div className="import-toast working">
+          ⏳ 正在载入照片{loadedCount > 0 ? "（已载入 " + loadedCount + " 张）" : "…"}
+        </div>
       )}
 
       {loadError && !importStatus && (

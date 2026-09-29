@@ -17,14 +17,15 @@ function addSatelliteBase(map: MapLibreMap) {
   const style = map.getStyle();
   if (!style || !style.layers) return;
 
-  map.setPaintProperty("background", "background-opacity", 0);
+  map.setPaintProperty("background", "background-color", "#0b2438");
+  map.setPaintProperty("background", "background-opacity", 1);
 
   style.layers.forEach((layer: any) => {
     if (layer.type === "fill") {
       map.setPaintProperty(layer.id, "fill-opacity", 0);
     }
     if (layer.id === "natural_earth") {
-      map.setPaintProperty(layer.id, "raster-opacity", 0);
+      map.setPaintProperty(layer.id, "raster-opacity", 1);
     }
   });
 
@@ -32,17 +33,21 @@ function addSatelliteBase(map: MapLibreMap) {
     type: "raster",
     tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
     tileSize: 256,
+    bounds: [-180, -82, 180, 82],
     attribution: "Imagery © Esri, Maxar, Earthstar Geographics"
   });
 
-  const firstLayerId = style.layers[0]?.id;
-  if (firstLayerId) {
-    map.addLayer({ id: "satellite-base", type: "raster", source: "satellite" }, firstLayerId);
+  const beforeLayer = style.layers.find(
+    (layer: any) => layer.id !== "background" && layer.id !== "natural_earth"
+  )?.id;
+
+  if (beforeLayer) {
+    map.addLayer({ id: "satellite-base", type: "raster", source: "satellite" }, beforeLayer);
   } else {
     map.addLayer({ id: "satellite-base", type: "raster", source: "satellite" });
   }
-}
 
+}
 export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation }: GlobeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -140,8 +145,22 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
         const marker = new Marker({ element, anchor: "bottom" })
           .setLngLat(location.coordinates)
           .addTo(map);
+        marker.setOpacity(1, 0);
         markersRef.current.push(marker);
       });
+
+      const addPoleCover = (lng: number, lat: number, className: string) => {
+        const pole = document.createElement("div");
+        pole.className = `pole-cap-marker ${className}`;
+        const poleMarker = new Marker({ element: pole, anchor: "center" })
+          .setLngLat([lng, lat])
+          .addTo(map);
+        poleMarker.setOpacity(1, 1);
+        markersRef.current.push(poleMarker);
+      };
+
+      addPoleCover(0, 90, "north");
+      addPoleCover(0, -90, "south");
     };
 
     const renderMap = () => {

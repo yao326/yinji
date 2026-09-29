@@ -12,6 +12,7 @@ function App() {
   const [showGallery, setShowGallery] = useState(false);
   const [importedLocations, setImportedLocations] = useState<PhotoLocation[]>([]);
   const [importStatus, setImportStatus] = useState<ImportStatus>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const locations = useMemo(
@@ -35,7 +36,10 @@ function App() {
   const handleSetCover = (locationId: string, photoId: string) =>
     setCoverOverrides((current) => ({ ...current, [locationId]: photoId }));
 
-  const handleImportClick = () => fileInputRef.current?.click();
+  const handleImportClick = () => {
+    setMenuOpen(false);
+    fileInputRef.current?.click();
+  };
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -74,20 +78,33 @@ function App() {
           <span>Yinji</span>
         </div>
         <p>把走过的路，印在地球上。</p>
-        <div className="brand-actions">
-          <button className="import-button" onClick={handleImportClick}>导入照片</button>
-          <button className="gallery-toggle" onClick={() => setShowGallery(true)}>相册</button>
-        </div>
         <em>界面原型 · 示例照片 + 本地导入</em>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          hidden
-          onChange={(event) => handleFiles(event.target.files)}
-        />
       </header>
+
+      <div className="corner-actions">
+        {menuOpen && (
+          <div className="actions-menu">
+            <button className="action-item import" onClick={handleImportClick}>导入</button>
+            <button className="action-item" onClick={() => { setShowGallery(true); setMenuOpen(false); }}>相册</button>
+          </div>
+        )}
+        <button
+          className="actions-toggle"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label={menuOpen ? "收起菜单" : "打开菜单"}
+        >
+          {menuOpen ? "×" : "＋"}
+        </button>
+      </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        onChange={(event) => handleFiles(event.target.files)}
+      />
 
       {importStatus && (
         <div className={`import-toast ${importStatus.kind}`}>

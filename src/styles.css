@@ -104,9 +104,12 @@ button { color:inherit; font:inherit; }
 .gallery-head h2 { margin:4px 0 0; font-size:26px; color:#16222e; }
 .gallery-close { width:38px; height:38px; border:1px solid rgba(120,140,160,.25); border-radius:50%; color:#3c5266; background:rgba(255,255,255,.6); cursor:pointer; }
 .gallery-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; }
-.gallery-photo { display:block; padding:0; overflow:hidden; border:1px solid rgba(255,255,255,.8); border-radius:14px; background:rgba(255,255,255,.45); box-shadow:inset 0 1px 0 rgba(255,255,255,.7); cursor:pointer; text-align:left; }
-.gallery-photo img { display:block; width:100%; aspect-ratio:1/.8; object-fit:cover; }
-.gallery-photo span { display:block; padding:8px 10px 10px; font-size:12px; color:#16222e; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.gallery-photo { position:relative; padding:0; overflow:hidden; border:1px solid rgba(255,255,255,.8); border-radius:14px; background:rgba(255,255,255,.45); box-shadow:inset 0 1px 0 rgba(255,255,255,.7); }
+.gallery-photo-open { display:block; width:100%; padding:0; border:0; background:transparent; cursor:pointer; text-align:left; }
+.gallery-photo-open img { display:block; width:100%; aspect-ratio:1/.8; object-fit:cover; }
+.gallery-title { display:block; padding:8px 10px 2px; font-size:12px; color:#16222e; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.gallery-addr { display:block; padding:0 10px 10px; font-size:11px; color:#667a8a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.gallery-delete { position:absolute; top:6px; right:6px; padding:3px 9px; border:1px solid rgba(255,255,255,.7); border-radius:999px; color:#ffffff; background:rgba(190,60,60,.78); cursor:pointer; font-size:11px; }
 
 /* 提示 */
 .import-toast { position:absolute; z-index:25; left:50%; top:18px; transform:translateX(-50%); max-width:min(90vw,560px); padding:10px 16px; border:1px solid rgba(255,255,255,.7); border-radius:12px; color:#16222e; background:linear-gradient(150deg,rgba(255,255,255,.58),rgba(255,255,255,.34)); font-size:12px; text-align:center; backdrop-filter:blur(12px); box-shadow:0 10px 30px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.8); }
@@ -140,5 +143,5 @@ button { color:inherit; font:inherit; }
   .photo-open small{display:none}
   .gallery-card{padding:14px;border-radius:20px}
   .gallery-grid{grid-template-columns:repeat(3,1fr);gap:8px}
-  .gallery-photo span{display:none}
+  .gallery-addr{display:none}
 }

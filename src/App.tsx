@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { GlobeMap } from "./components/GlobeMap";
 import type { Photo, PhotoLocation } from "./data/types";
 import { importPhotosFromFiles } from "./lib/importPhotos";
-import { loadImported, saveImported, renameLocation } from "./lib/store";
+import { loadImported, saveImported, renameLocation, removePhoto } from "./lib/store";
 
 type ImportStatus = { kind: "working" | "done" | "error"; text: string } | null;
 
@@ -50,7 +50,17 @@ function App() {
     [locations, activeLocationId]
   );
 
-  const allPhotos = useMemo(() => locations.flatMap((location) => location.photos), [locations]);
+  const allPhotos = useMemo(
+    () =>
+      locations.flatMap((location) =>
+        location.photos.map((photo) => ({
+          photo,
+          locationName: location.name,
+          country: location.country
+        }))
+      ),
+    [locations]
+  );
 
   const coverId = activeLocation
     ? coverOverrides[activeLocation.id] || activeLocation.coverPhotoId
@@ -73,6 +83,29 @@ function App() {
     const name = rawName.trim();
     if (!name || !activeLocation || name === activeLocation.name) return;
     handleRename(activeLocation.id, name);
+  };
+
+  const handleDeletePhoto = (photoId: string) => {
+    setImportedLocations((current) =>
+      current
+        .map((loc) => {
+          if (!loc.photos.some((p) => p.id === photoId)) return loc;
+          const photos = loc.photos.filter((p) => p.id !== photoId);
+          if (photos.length === 0) return null;
+          return {
+            ...loc,
+            photos,
+            coverPhotoId: loc.coverPhotoId === photoId ? photos[0].id : loc.coverPhotoId
+          };
+        })
+        .filter((loc): loc is PhotoLocation => loc !== null)
+    );
+    removePhoto(photoId).catch(() => {});
+    if (activePhoto?.id === photoId) setActivePhoto(undefined);
+    if (activeLocation && activeLocation.photos.some((p) => p.id === photoId)) {
+      const remaining = activeLocation.photos.filter((p) => p.id !== photoId);
+      if (remaining.length === 0) setActiveLocationId(undefined);
+    }
   };
 
   const handleImportClick = () => {
@@ -190,11 +223,23 @@ function App() {
               <button className="gallery-close" onClick={() => setShowGallery(false)} aria-label="关闭相册">×</button>
             </div>
             <div className="gallery-grid">
-              {allPhotos.map((photo) => (
-                <button className="gallery-photo" key={photo.id} onClick={() => setActivePhoto(photo)}>
-                  <img src={photo.thumb} alt={photo.title} loading="lazy" decoding="async" />
-                  <span>{photo.title}</span>
-                </button>
+              {allPhotos.map(({ photo, locationName }) => (
+                <div className="gallery-photo" key={photo.id}>
+                  <button className="gallery-photo-open" onClick={() => setActivePhoto(photo)}>
+                    <img src={photo.thumb} alt={photo.title} loading="lazy" decoding="async" />
+                    <span className="gallery-title">{photo.title}</span>
+                    <span className="gallery-addr">{locationName}</span>
+                  </button>
+                  <button
+                    className="gallery-delete"
+                    onClick={() => {
+                      if (window.confirm("确定删除这张照片吗？")) handleDeletePhoto(photo.id);
+                    }}
+                    aria-label="删除照片"
+                  >
+                    删除
+                  </button>
+                </div>
               ))}
             </div>
           </div>

@@ -179,6 +179,39 @@ export async function renameLocation(id: string, name: string): Promise<void> {
   db.close();
 }
 
+export async function removePhoto(photoId: string): Promise<void> {
+  const db = await openDb();
+  let stored: StoredLocation[] = [];
+  try {
+    stored = await readStoredLocations(db);
+  } catch {
+    db.close();
+    return;
+  }
+
+  for (const loc of stored) {
+    const idx = loc.photos.findIndex((p) => p.id === photoId);
+    if (idx >= 0) {
+      loc.photos.splice(idx, 1);
+      if (loc.coverPhotoId === photoId) {
+        loc.coverPhotoId = loc.photos[0]?.id ?? "";
+      }
+      break;
+    }
+  }
+
+  const remaining = stored.filter((loc) => loc.photos.length > 0);
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    const store = tx.objectStore(STORE);
+    store.clear();
+    for (const loc of remaining) store.put(loc);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  db.close();
+}
+
 export async function clearImported(): Promise<void> {
   const db = await openDb();
   await new Promise<void>((resolve, reject) => {

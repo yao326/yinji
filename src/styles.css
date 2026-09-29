@@ -109,7 +109,10 @@ button { color:inherit; font:inherit; }
 .gallery-photo-open img { display:block; width:100%; aspect-ratio:1/.8; object-fit:cover; }
 .gallery-title { display:block; padding:8px 10px 2px; font-size:12px; color:#16222e; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .gallery-addr { display:block; padding:0 10px 10px; font-size:11px; color:#667a8a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.gallery-delete { position:absolute; top:6px; right:6px; padding:3px 9px; border:1px solid rgba(255,255,255,.7); border-radius:999px; color:#ffffff; background:rgba(190,60,60,.78); cursor:pointer; font-size:11px; }
+.context-overlay { position:fixed; inset:0; z-index:40; }
+.context-menu { position:fixed; z-index:41; min-width:120px; padding:6px; border:1px solid rgba(255,255,255,.7); border-radius:12px; background:linear-gradient(150deg,rgba(255,255,255,.6),rgba(255,255,255,.34)); box-shadow:0 10px 30px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.85); backdrop-filter:blur(16px); }
+.context-item { display:block; width:100%; padding:8px 14px; border:none; border-radius:8px; background:transparent; color:#b04040; cursor:pointer; font-size:13px; text-align:left; }
+.context-item:hover { background:rgba(255,255,255,.35); }
 
 /* 提示 */
 .import-toast { position:absolute; z-index:25; left:50%; top:18px; transform:translateX(-50%); max-width:min(90vw,560px); padding:10px 16px; border:1px solid rgba(255,255,255,.7); border-radius:12px; color:#16222e; background:linear-gradient(150deg,rgba(255,255,255,.58),rgba(255,255,255,.34)); font-size:12px; text-align:center; backdrop-filter:blur(12px); box-shadow:0 10px 30px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.8); }

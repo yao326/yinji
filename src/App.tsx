@@ -18,6 +18,7 @@ function App() {
   const [loadedCount, setLoadedCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; photo: Photo } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -224,20 +225,18 @@ function App() {
             </div>
             <div className="gallery-grid">
               {allPhotos.map(({ photo, locationName }) => (
-                <div className="gallery-photo" key={photo.id}>
+                <div
+                  className="gallery-photo"
+                  key={photo.id}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    setContextMenu({ x: event.clientX, y: event.clientY, photo });
+                  }}
+                >
                   <button className="gallery-photo-open" onClick={() => setActivePhoto(photo)}>
                     <img src={photo.thumb} alt={photo.title} loading="lazy" decoding="async" />
                     <span className="gallery-title">{photo.title}</span>
                     <span className="gallery-addr">{locationName}</span>
-                  </button>
-                  <button
-                    className="gallery-delete"
-                    onClick={() => {
-                      if (window.confirm("确定删除这张照片吗？")) handleDeletePhoto(photo.id);
-                    }}
-                    aria-label="删除照片"
-                  >
-                    删除
                   </button>
                 </div>
               ))}
@@ -328,6 +327,30 @@ function App() {
           </div>
         )}
       </div>
+      {contextMenu && (
+        <>
+          <div
+            className="context-overlay"
+            onClick={() => setContextMenu(null)}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              setContextMenu(null);
+            }}
+          />
+          <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }}>
+            <button
+              className="context-item"
+              onClick={() => {
+                const { id, title } = contextMenu.photo;
+                setContextMenu(null);
+                if (window.confirm(`确定删除「${title}」吗？`)) handleDeletePhoto(id);
+              }}
+            >
+              删除
+            </button>
+          </div>
+        </>
+      )}
     </main>
   );
 }

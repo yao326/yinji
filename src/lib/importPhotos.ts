@@ -1,6 +1,7 @@
 import exifr from "exifr";
 import type { PhotoLocation, StoredLocation } from "../data/types";
 import { toDisplayAndThumb } from "./displayImage";
+import { matchCity } from "./cities";
 
 export type ImportResult = {
   locations: PhotoLocation[];
@@ -26,17 +27,25 @@ function shortCoord(lat: number, lng: number): string {
 }
 
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 4000);
+
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=10&accept-language=zh`;
-    const res = await fetch(url, { headers: { "User-Agent": "yinji-local-app" } });
-    if (!res.ok) return shortCoord(lat, lng);
-    const data = await res.json();
-    const a = data?.address;
-    const city = a?.city || a?.town || a?.village || a?.county || a?.state || a?.country;
-    return city ? `${city}` : shortCoord(lat, lng);
+    const res = await fetch(url, { headers: { "User-Agent": "yinji-local-app" }, signal: controller.signal });
+    if (res.ok) {
+      const data = await res.json();
+      const a = data?.address;
+      const city = a?.city || a?.town || a?.village || a?.county || a?.state || a?.country;
+      if (city) return `${city}`;
+    }
   } catch {
-    return shortCoord(lat, lng);
+    // 网络不可用时走离线城市匹配
+  } finally {
+    clearTimeout(timer);
   }
+
+  return matchCity(lng, lat) ?? shortCoord(lat, lng);
 }
 
 function runId(): string {

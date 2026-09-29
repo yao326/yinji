@@ -159,7 +159,12 @@ function App() {
         </div>
       )}
 
-      <div className={`gallery-panel ${showGallery ? "is-open" : ""}`}>
+      <div
+        className={`gallery-panel ${showGallery ? "is-open" : ""}`}
+        onClick={(event) => {
+          if (event.currentTarget === event.target) setShowGallery(false);
+        }}
+      >
         {showGallery && (
           <div className="gallery-card">
             <div className="gallery-head">

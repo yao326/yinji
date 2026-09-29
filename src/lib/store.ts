@@ -1,5 +1,6 @@
 import type { PhotoLocation, StoredLocation } from "../data/types";
 import { toDisplayAndThumb } from "./displayImage";
+import { matchCity } from "./cities";
 
 const DB_NAME = "yinji";
 const STORE = "locations";
@@ -43,6 +44,16 @@ async function toPhotoLocation(location: StoredLocation): Promise<{
   changed: boolean;
 }> {
   let changed = false;
+
+  // 之前反查失败时地名存成了坐标，这里用内置城市库兜底重试
+  if (location.name.includes("°")) {
+    const city = matchCity(location.coordinates[0], location.coordinates[1]);
+    if (city) {
+      location.name = city;
+      changed = true;
+    }
+  }
+
   const photos: PhotoLocation["photos"] = [];
 
   for (const photo of location.photos) {

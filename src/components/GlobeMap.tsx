@@ -176,9 +176,9 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
 
     mapRef.current.flyTo({
       center: location.coordinates,
-      zoom: 4.5,
-      pitch: 35,
-      duration: 850,
+      zoom: 3.2,
+      pitch: 0,
+      duration: 800,
       essential: true
     });
   }, [activeLocationId, locations]);

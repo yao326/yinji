@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Map as MapLibreMap, Marker, NavigationControl, AttributionControl, setWorkerUrl } from "maplibre-gl";
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
-import type { StyleSpecification } from "maplibre-gl";
 import type { PhotoLocation } from "../data/demoPhotos";
 
 type GlobeMapProps = {
@@ -11,22 +10,38 @@ type GlobeMapProps = {
   onSelectLocation: (location: PhotoLocation) => void;
 };
 
-const satelliteStyle: StyleSpecification = {
-  version: 8,
-  sources: {
-    esri: {
-      type: "raster",
-      tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
-      tileSize: 256,
-      attribution: "Imagery © Esri, Maxar, Earthstar Geographics"
-    }
-  },
-  layers: [
-    { id: "satellite", type: "raster", source: "esri" }
-  ]
-};
-const mapStyle: StyleSpecification | string = import.meta.env.VITE_MAP_STYLE_URL || satelliteStyle;
+const mapStyle = import.meta.env.VITE_MAP_STYLE_URL || "https://tiles.openfreemap.org/styles/liberty";
 setWorkerUrl(maplibreWorkerUrl);
+function addSatelliteBase(map: MapLibreMap) {
+  if (map.getSource("satellite")) return;
+  const style = map.getStyle();
+  if (!style || !style.layers) return;
+
+  map.setPaintProperty("background", "background-opacity", 0);
+
+  style.layers.forEach((layer: any) => {
+    if (layer.type === "fill") {
+      map.setPaintProperty(layer.id, "fill-opacity", 0);
+    }
+    if (layer.id === "natural_earth") {
+      map.setPaintProperty(layer.id, "raster-opacity", 0);
+    }
+  });
+
+  map.addSource("satellite", {
+    type: "raster",
+    tiles: ["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+    tileSize: 256,
+    attribution: "Imagery © Esri, Maxar, Earthstar Geographics"
+  });
+
+  const firstLayerId = style.layers[0]?.id;
+  if (firstLayerId) {
+    map.addLayer({ id: "satellite-base", type: "raster", source: "satellite" }, firstLayerId);
+  } else {
+    map.addLayer({ id: "satellite-base", type: "raster", source: "satellite" });
+  }
+}
 
 export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation }: GlobeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -56,7 +71,7 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
     map.addControl(
       new AttributionControl({
         compact: true,
-        customAttribution: "Imagery © Esri, Maxar, Earthstar Geographics"
+        customAttribution: "Map data © OpenStreetMap contributors · Imagery © Esri"
       }),
       "bottom-left"
     );
@@ -130,6 +145,7 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
     };
 
     const renderMap = () => {
+      addSatelliteBase(map);
       map.setProjection({ type: "globe" });
       renderMarkers();
     };

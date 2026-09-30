@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Map as MapLibreMap, Marker, NavigationControl, AttributionControl, setWorkerUrl } from "maplibre-gl";
+import { Map as MapLibreMap, Marker, AttributionControl, setWorkerUrl } from "maplibre-gl";
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import type { PhotoLocation } from "../data/types";
 
@@ -77,7 +77,6 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
       attributionControl: false,
     });
 
-    map.addControl(new NavigationControl({ visualizePitch: true }), "bottom-right");
     map.addControl(
       new AttributionControl({
         compact: true,

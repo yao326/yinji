@@ -51,7 +51,7 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
 function runId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => { const r = (Math.random() * 16) | 0; const v = c === "x" ? r : (r & 0x3) | 0x8; return v.toString(16); });
 }
 
 export async function importPhotosFromFiles(files: File[]): Promise<ImportResult> {
@@ -66,7 +66,6 @@ export async function importPhotosFromFiles(files: File[]): Promise<ImportResult
   const parsed: Parsed[] = [];
   const skipped: string[] = [];
   const failed: string[] = [];
-  const run = runId();
 
   for (const file of files) {
     try {
@@ -85,7 +84,7 @@ export async function importPhotosFromFiles(files: File[]): Promise<ImportResult
       const { display, thumb } = await toDisplayAndThumb(file);
 
       parsed.push({
-        id: `${run}-${parsed.length + 1}`,
+        id: runId(),
         title: file.name.replace(/\.[^.]+$/, ""),
         date,
         blob: display,
@@ -117,7 +116,7 @@ export async function importPhotosFromFiles(files: File[]): Promise<ImportResult
     const [lng, lat] = group.coordinates;
     const name = await reverseGeocode(lat, lng);
     const cover = group.photos[0];
-    const locId = `${run}-loc-${n}`;
+    const locId = runId();
 
     locations.push({
       id: locId,

@@ -11,3 +11,9 @@ debug-*.png
 
 启动印迹.bat
 启动印迹.vbs
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example

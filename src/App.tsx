@@ -3,15 +3,27 @@ import { GlobeMap } from "./components/GlobeMap";
 import type { Photo, PhotoLocation } from "./data/types";
 import { importPhotosFromFiles } from "./lib/importPhotos";
 import { loadImported, saveImported, renameLocation, removePhoto } from "./lib/store";
+import { supabase } from "./lib/supabase";
+import { signUp, signIn, signOut, loadCloudLocations, uploadLocations, deleteCloudPhoto, renameCloudLocation } from "./lib/cloudSync";
 
 type ImportStatus = { kind: "working" | "done" | "error"; text: string } | null;
+type AuthState = "loading" | "signedOut" | "signedIn";
 
 function App() {
+  const [authState, setAuthState] = useState<AuthState>("loading");
+  const [userEmail, setUserEmail] = useState("");
+  const [showAuthPanel, setShowAuthPanel] = useState(false);
+  const [authMode, setAuthMode] = useState<"signIn" | "signUp">("signIn");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
+
   const [activeLocationId, setActiveLocationId] = useState<string>();
   const [coverOverrides, setCoverOverrides] = useState<Record<string, string>>({});
   const [activePhoto, setActivePhoto] = useState<Photo>();
   const [showGallery, setShowGallery] = useState(false);
-  const [importedLocations, setImportedLocations] = useState<PhotoLocation[]>([]);
+  const [locations, setLocations] = useState<PhotoLocation[]>([]);
   const [importStatus, setImportStatus] = useState<ImportStatus>(null);
   const [loadingImported, setLoadingImported] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -22,29 +34,47 @@ function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    setLoadingImported(true);
-    setLoadError(false);
-
-    loadImported((batch) => {
-      if (!cancelled) {
-        setImportedLocations((current) => [...current, ...batch]);
-        setLoadedCount((count) => count + batch.reduce((sum, loc) => sum + loc.photos.length, 0));
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        setAuthState("signedIn");
+        setUserEmail(data.session.user.email ?? "");
+      } else {
+        setAuthState("signedOut");
+        setShowAuthPanel(true);
       }
-    })
-      .catch(() => {
-        if (!cancelled) setLoadError(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingImported(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    });
   }, []);
 
-  const locations = importedLocations;
+  useEffect(() => {
+    if (authState === "signedIn") {
+      setLoadingImported(true);
+      setLoadError(false);
+      loadCloudLocations()
+        .then((locs) => setLocations(locs))
+        .catch(() => setLoadError(true))
+        .finally(() => setLoadingImported(false));
+    } else if (authState === "signedOut") {
+      let cancelled = false;
+      setLoadingImported(true);
+      setLoadError(false);
+      setLoadedCount(0);
+      loadImported((batch) => {
+        if (!cancelled) {
+          setLocations((current) => [...current, ...batch]);
+          setLoadedCount((count) => count + batch.reduce((sum, loc) => sum + loc.photos.length, 0));
+        }
+      })
+        .catch(() => {
+          if (!cancelled) setLoadError(true);
+        })
+        .finally(() => {
+          if (!cancelled) setLoadingImported(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [authState]);
 
   const activeLocation = useMemo(
     () => locations.find((location) => location.id === activeLocationId),
@@ -67,16 +97,55 @@ function App() {
     ? coverOverrides[activeLocation.id] || activeLocation.coverPhotoId
     : undefined;
 
+  const handleAuth = async () => {
+    if (!email.trim() || password.length < 6) {
+      setAuthError("请输入邮箱，密码至少 6 位");
+      return;
+    }
+    setAuthBusy(true);
+    setAuthError("");
+    const fn = authMode === "signIn" ? signIn : signUp;
+    const err = await fn(email.trim(), password);
+    if (err) {
+      setAuthError(err);
+      setAuthBusy(false);
+      return;
+    }
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      setAuthState("signedIn");
+      setUserEmail(data.session.user.email ?? "");
+      setShowAuthPanel(false);
+    } else {
+      setAuthError("注册成功，请检查邮箱确认后登录");
+    }
+    setAuthBusy(false);
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    setLocations([]);
+    setActiveLocationId(undefined);
+    setActivePhoto(undefined);
+    setCoverOverrides({});
+    setAuthState("signedOut");
+    setShowAuthPanel(true);
+  };
+
   const handleSelect = (location: PhotoLocation) => setActiveLocationId(location.id);
 
   const handleSetCover = (locationId: string, photoId: string) =>
     setCoverOverrides((current) => ({ ...current, [locationId]: photoId }));
 
   const handleRename = (locationId: string, name: string) => {
-    setImportedLocations((current) =>
+    setLocations((current) =>
       current.map((loc) => (loc.id === locationId ? { ...loc, name } : loc))
     );
-    renameLocation(locationId, name).catch(() => {});
+    if (authState === "signedIn") {
+      renameCloudLocation(locationId, name).catch(() => {});
+    } else {
+      renameLocation(locationId, name).catch(() => {});
+    }
   };
 
   const commitRename = (rawName: string) => {
@@ -87,7 +156,7 @@ function App() {
   };
 
   const handleDeletePhoto = (photoId: string) => {
-    setImportedLocations((current) =>
+    setLocations((current) =>
       current
         .map((loc) => {
           if (!loc.photos.some((p) => p.id === photoId)) return loc;
@@ -101,7 +170,11 @@ function App() {
         })
         .filter((loc): loc is PhotoLocation => loc !== null)
     );
-    removePhoto(photoId).catch(() => {});
+    if (authState === "signedIn") {
+      deleteCloudPhoto(photoId).catch(() => {});
+    } else {
+      removePhoto(photoId).catch(() => {});
+    }
     if (activePhoto?.id === photoId) setActivePhoto(undefined);
     if (activeLocation && activeLocation.photos.some((p) => p.id === photoId)) {
       const remaining = activeLocation.photos.filter((p) => p.id !== photoId);
@@ -116,16 +189,23 @@ function App() {
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    setImportStatus({ kind: "working", text: `正在读取 ${files.length} 张照片的定位…` });
+    setImportStatus({ kind: "working", text: "正在读取 " + files.length + " 张照片的定位…" });
     try {
       const result = await importPhotosFromFiles(Array.from(files));
       if (result.totalPhotos > 0) {
-        setImportedLocations((current) => [...current, ...result.locations]);
-        saveImported(result.stored).catch(() => {});
+        if (authState === "signedIn") {
+          setImportStatus({ kind: "working", text: "正在上传照片到云端…" });
+          await uploadLocations(result.stored);
+          const locs = await loadCloudLocations();
+          setLocations(locs);
+        } else {
+          setLocations((current) => [...current, ...result.locations]);
+          saveImported(result.stored).catch(() => {});
+        }
       }
-      const parts: string[] = [`成功导入 ${result.totalPhotos} 张`];
-      if (result.skipped.length) parts.push(`${result.skipped.length} 张没有定位信息`);
-      if (result.failed.length) parts.push(`${result.failed.length} 张读取失败`);
+      const parts: string[] = ["成功导入 " + result.totalPhotos + " 张"];
+      if (result.skipped.length) parts.push(result.skipped.length + " 张没有定位信息");
+      if (result.failed.length) parts.push(result.failed.length + " 张读取失败");
       setImportStatus({ kind: "done", text: parts.join("，") });
     } catch {
       setImportStatus({ kind: "error", text: "导入失败，请重试" });
@@ -133,6 +213,15 @@ function App() {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
+
+  if (authState === "loading") {
+    return (
+      <main className="app-shell">
+        <div className="stars" aria-hidden="true" />
+        <div className="auth-loading">正在加载…</div>
+      </main>
+    );
+  }
 
   return (
     <main className="app-shell">
@@ -155,7 +244,7 @@ function App() {
             <span>Yinji</span>
           </div>
           <p>把走过的路，印在地球上。</p>
-          <em>照片只保存在本机</em>
+          <em>{authState === "signedIn" ? userEmail : "照片只保存在本机"}</em>
         </header>
 
         <div className="quick-bar">
@@ -170,6 +259,11 @@ function App() {
             <div className="quick-menu">
               <button className="action-item import" onClick={handleImportClick}>导入</button>
               <button className="action-item" onClick={() => { setShowGallery(true); setMenuOpen(false); }}>相册</button>
+              {authState === "signedIn" ? (
+                <button className="action-item" onClick={() => { setMenuOpen(false); handleSignOut(); }}>登出</button>
+              ) : (
+                <button className="action-item" onClick={() => { setMenuOpen(false); setShowAuthPanel(true); }}>登录</button>
+              )}
             </div>
           )}
         </div>
@@ -185,7 +279,7 @@ function App() {
       />
 
       {importStatus && (
-        <div className={`import-toast ${importStatus.kind}`}>
+        <div className={"import-toast " + importStatus.kind}>
           {importStatus.kind === "working" ? "⏳ " : importStatus.kind === "done" ? "✅ " : "⚠️ "}
           {importStatus.text}
         </div>
@@ -198,18 +292,68 @@ function App() {
       )}
 
       {loadError && !importStatus && (
-        <div className="import-toast error">⚠️ 本机照片读取失败，请刷新页面重试</div>
+        <div className="import-toast error">⚠️ 照片读取失败，请刷新页面重试</div>
       )}
 
-      {!loadingImported && !loadError && locations.length === 0 && (
+      {!loadingImported && !loadError && locations.length === 0 && !showAuthPanel && (
         <div className="empty-state">
           <strong>还没有照片</strong>
           <span>点左上角“＋”→“导入”添加照片。</span>
         </div>
       )}
 
+      {showAuthPanel && authState === "signedOut" && (
+        <div className="auth-panel">
+          <div className="auth-card">
+            <div className="auth-head">
+              <strong>印迹</strong>
+              <span>登录后照片云端同步，换设备也能看</span>
+            </div>
+            <input
+              className="auth-input"
+              type="email"
+              placeholder="邮箱（QQ邮箱即可）"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+            <input
+              className="auth-input"
+              type="password"
+              placeholder="密码（至少 6 位）"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") handleAuth();
+              }}
+            />
+            {authError && <p className="auth-error">{authError}</p>}
+            <button className="auth-button" onClick={handleAuth} disabled={authBusy}>
+              {authBusy ? "请稍候…" : authMode === "signIn" ? "登录" : "注册"}
+            </button>
+            <button
+              className="auth-switch"
+              onClick={() => {
+                setAuthMode((m) => (m === "signIn" ? "signUp" : "signIn"));
+                setAuthError("");
+              }}
+            >
+              {authMode === "signIn" ? "没有账号？注册一个" : "已有账号？去登录"}
+            </button>
+            <button
+              className="auth-skip"
+              onClick={() => {
+                setShowAuthPanel(false);
+                setAuthError("");
+              }}
+            >
+              暂不登录，本地使用
+            </button>
+          </div>
+        </div>
+      )}
+
       <div
-        className={`gallery-panel ${showGallery ? "is-open" : ""}`}
+        className={"gallery-panel " + (showGallery ? "is-open" : "")}
         onClick={(event) => {
           if (event.currentTarget === event.target) setShowGallery(false);
         }}
@@ -251,7 +395,7 @@ function App() {
         <span>点击照片堆</span>
       </div>
 
-      <aside className={`location-panel ${activeLocation ? "is-open" : ""}`}>
+      <aside className={"location-panel " + (activeLocation ? "is-open" : "")}>
         {activeLocation && (
           <>
             <button className="panel-close" onClick={() => setActiveLocationId(undefined)} aria-label="关闭">
@@ -284,7 +428,7 @@ function App() {
               {activeLocation.photos.map((photo) => {
                 const isCover = coverId === photo.id;
                 return (
-                  <article className={`photo-tile ${isCover ? "is-cover" : ""}`} key={photo.id}>
+                  <article className={"photo-tile " + (isCover ? "is-cover" : "")} key={photo.id}>
                     <button className="photo-open" onClick={() => setActivePhoto(photo)}>
                       <img src={photo.thumb} alt={photo.title} loading="lazy" decoding="async" />
                       <span>
@@ -295,7 +439,7 @@ function App() {
                     <button
                       className="cover-button"
                       onClick={() => handleSetCover(activeLocation.id, photo.id)}
-                      aria-label={`将 ${photo.title} 设为封面`}
+                      aria-label={"将 " + photo.title + " 设为封面"}
                       title={isCover ? "当前封面" : "设为封面"}
                     >
                       {isCover ? "★" : "☆"}
@@ -309,7 +453,7 @@ function App() {
       </aside>
 
       <div
-        className={`photo-viewer ${activePhoto ? "is-open" : ""}`}
+        className={"photo-viewer " + (activePhoto ? "is-open" : "")}
         onClick={(event) => {
           if (event.currentTarget === event.target) setActivePhoto(undefined);
         }}
@@ -327,6 +471,7 @@ function App() {
           </div>
         )}
       </div>
+
       {contextMenu && (
         <>
           <div
@@ -343,7 +488,7 @@ function App() {
               onClick={() => {
                 const { id, title } = contextMenu.photo;
                 setContextMenu(null);
-                if (window.confirm(`确定删除「${title}」吗？`)) handleDeletePhoto(id);
+                if (window.confirm("确定删除「" + title + "」吗？")) handleDeletePhoto(id);
               }}
             >
               删除

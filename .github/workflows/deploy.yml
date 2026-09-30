@@ -31,6 +31,8 @@ jobs:
         run: npm run build
         env:
           VITE_BASE: /yinji/
+          VITE_SUPABASE_URL: https://brmnfbrcnkevawqassdf.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_7hPx1KX6KWUO_tfkztRltA_BBmtVNVZ
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload Pages artifact

@@ -5,6 +5,11 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./styles.css";
 import App from "./App";
 
+// 统一地址：localhost 自动跳转到 127.0.0.1，避免照片数据被拆成两份
+if (location.hostname === "localhost") {
+  location.replace(`http://127.0.0.1:${location.port}${location.pathname}${location.search}`);
+}
+
 if (import.meta.env.PROD) {
   registerSW({ immediate: true });
 } else if ("serviceWorker" in navigator) {

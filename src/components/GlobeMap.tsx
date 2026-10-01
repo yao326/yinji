@@ -163,9 +163,7 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
   // 数据或封面变化时重新渲染
   useEffect(() => {
     if (!mapRef.current) return;
-    if (mapRef.current.loaded()) {
-      renderAllRef.current();
-    }
+    renderAllRef.current();
   }, [locations, covers]);
 
   useEffect(() => {

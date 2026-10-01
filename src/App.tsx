@@ -244,7 +244,7 @@ function App() {
             <span>Yinji</span>
           </div>
           <p>把走过的路，印在地球上。</p>
-          <em>{authState === "signedIn" ? userEmail : "照片只保存在本机"}</em>
+          <em>{authState === "signedIn" ? "云端已同步" : "照片只保存在本机"}</em>
         </header>
 
         <div className="quick-bar">

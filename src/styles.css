@@ -160,3 +160,11 @@ button { color:inherit; font:inherit; }
 .auth-skip { padding:4px; border:none; background:none; color:#667a8a; cursor:pointer; font-size:12px; }
 .auth-error { margin:0; color:#c04a4a; font-size:12px; }
 .auth-loading { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); color:#ffffff; font-size:14px; }
+
+/* 玻璃质感滚动条 */
+* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.42) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: linear-gradient(160deg,rgba(255,255,255,.55),rgba(255,255,255,.22)); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: linear-gradient(160deg,rgba(255,255,255,.78),rgba(255,255,255,.42)); background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }

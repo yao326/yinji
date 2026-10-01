@@ -249,7 +249,7 @@ function App() {
 
         <div className="quick-bar">
           <button
-            className="quick-toggle"
+            className={"quick-toggle" + (menuOpen ? " is-open" : "")}
             onClick={() => setMenuOpen((v) => !v)}
             aria-label={menuOpen ? "收起" : "打开"}
           >
@@ -368,9 +368,10 @@ function App() {
               <button className="gallery-close" onClick={() => setShowGallery(false)} aria-label="关闭相册">×</button>
             </div>
             <div className="gallery-grid">
-              {allPhotos.map(({ photo, locationName }) => (
+              {allPhotos.map(({ photo, locationName }, i) => (
                 <div
-                  className="gallery-photo"
+                  className="gallery-photo cascade"
+                  style={{ animationDelay: i * 35 + "ms" }}
                   key={photo.id}
                   onContextMenu={(event) => {
                     event.preventDefault();
@@ -425,10 +426,10 @@ function App() {
             </div>
 
             <div className="photo-list">
-              {activeLocation.photos.map((photo) => {
+              {activeLocation.photos.map((photo, i) => {
                 const isCover = coverId === photo.id;
                 return (
-                  <article className={"photo-tile " + (isCover ? "is-cover" : "")} key={photo.id}>
+                  <article className={"photo-tile cascade " + (isCover ? "is-cover" : "")} style={{ animationDelay: i * 35 + "ms" }} key={photo.id}>
                     <button className="photo-open" onClick={() => setActivePhoto(photo)}>
                       <img src={photo.thumb} alt={photo.title} loading="lazy" decoding="async" />
                       <span>

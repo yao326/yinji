@@ -168,3 +168,22 @@ button { color:inherit; font:inherit; }
 ::-webkit-scrollbar-thumb { background: linear-gradient(160deg,rgba(255,255,255,.55),rgba(255,255,255,.22)); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-thumb:hover { background: linear-gradient(160deg,rgba(255,255,255,.78),rgba(255,255,255,.42)); background-clip: padding-box; }
 ::-webkit-scrollbar-corner { background: transparent; }
+
+/* ===== 08 弹性微缩触觉反馈（PRESS SCALE）===== */
+.action-item,.quick-toggle,.gallery-close,.panel-close,.viewer-close,.cover-button,.auth-button,.gallery-photo-open,.photo-open,.context-item,.auth-switch,.auth-skip {
+  transition: transform .2s cubic-bezier(.34,1.56,.64,1), background .2s ease, box-shadow .2s ease;
+}
+.action-item:active,.quick-toggle:active,.gallery-close:active,.panel-close:active,.viewer-close:active,.cover-button:active,.auth-button:active,.gallery-photo-open:active,.photo-open:active,.context-item:active,.auth-switch:active,.auth-skip:active {
+  transform: scale(.93);
+}
+
+/* ===== 07 物理弹簧交错流（STAGGER CASCADE）===== */
+@keyframes cascadeIn {
+  0% { opacity: 0; transform: translateY(22px) scale(.9); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.cascade { animation: cascadeIn .5s cubic-bezier(.34,1.56,.64,1) both; }
+
+/* ===== 02 流体胶囊形变（FLUID MORPH）===== */
+.quick-toggle { transition: border-radius .5s cubic-bezier(.34,1.56,.64,1), transform .5s cubic-bezier(.34,1.56,.64,1), background .25s ease; }
+.quick-toggle.is-open { border-radius: 30%; transform: rotate(45deg); background: rgba(255,255,255,.36); }

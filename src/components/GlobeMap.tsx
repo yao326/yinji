@@ -10,6 +10,12 @@ type GlobeMapProps = {
   onSelectLocation: (location: PhotoLocation) => void;
 };
 
+type Cluster = {
+  primary: PhotoLocation;
+  members: PhotoLocation[];
+  photos: PhotoLocation["photos"];
+};
+
 const mapStyle = import.meta.env.VITE_MAP_STYLE_URL || "https://tiles.openfreemap.org/styles/liberty";
 setWorkerUrl(maplibreWorkerUrl);
 
@@ -21,7 +27,6 @@ function addSatelliteBase(map: MapLibreMap) {
   map.setPaintProperty("background", "background-color", "#05070d");
   map.setPaintProperty("background", "background-opacity", 0);
 
-  // 隐藏矢量填充，保留道路/地名和南北极的自然地球底图（避免极点黑圈）
   style.layers.forEach((layer: any) => {
     if (layer.type === "fill") {
       map.setPaintProperty(layer.id, "fill-opacity", 0);
@@ -48,6 +53,42 @@ function addSatelliteBase(map: MapLibreMap) {
   } else {
     map.addLayer({ id: "satellite-base", type: "raster", source: "satellite" });
   }
+}
+
+function approxDistance(a: [number, number], b: [number, number]): number {
+  const midLat = ((a[1] + b[1]) / 2) * (Math.PI / 180);
+  const dLat = a[1] - b[1];
+  const dLng = (a[0] - b[0]) * Math.cos(midLat);
+  return Math.sqrt(dLat * dLat + dLng * dLng);
+}
+
+function mergeRadius(zoom: number): number {
+  return 10 / Math.pow(2, zoom);
+}
+
+function clusterLocations(locations: PhotoLocation[], zoom: number): Cluster[] {
+  const radius = mergeRadius(zoom);
+  const clusters: Cluster[] = [];
+
+  for (const loc of locations) {
+    let hit: Cluster | undefined;
+    for (const c of clusters) {
+      if (approxDistance(c.primary.coordinates, loc.coordinates) <= radius) {
+        hit = c;
+        break;
+      }
+    }
+    if (hit) {
+      hit.members.push(loc);
+      hit.photos.push(...loc.photos);
+      const best = hit.members.reduce((a, b) => (b.photos.length > a.photos.length ? b : a));
+      hit.primary = best;
+    } else {
+      clusters.push({ primary: loc, members: [loc], photos: [...loc.photos] });
+    }
+  }
+
+  return clusters;
 }
 
 export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation }: GlobeMapProps) {
@@ -88,6 +129,13 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
     mapRef.current = map;
     if (import.meta.env.DEV) { (window as any).__yinjiMap = map; }
 
+    let zoomTimer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleRender = () => {
+      if (zoomTimer) clearTimeout(zoomTimer);
+      zoomTimer = setTimeout(() => renderAllRef.current(), 140);
+    };
+    map.on("zoom", scheduleRender);
+
     map.once("load", () => {
       addSatelliteBase(map);
       map.setProjection({ type: "globe" });
@@ -95,6 +143,8 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
     });
 
     return () => {
+      if (zoomTimer) clearTimeout(zoomTimer);
+      map.off("zoom", scheduleRender);
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
       map.remove();
@@ -102,7 +152,6 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
     };
   }, []);
 
-  // 每次渲染更新 renderAll 的最新实现
   renderAllRef.current = () => {
     const map = mapRef.current;
     if (!map) return;
@@ -110,16 +159,23 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
 
-    locationsRef.current.forEach((location) => {
-      const coverId = coversRef.current[location.id] || location.coverPhotoId;
+    const zoom = map.getZoom();
+    const clusters = clusterLocations(locationsRef.current, zoom);
+
+    clusters.forEach((cluster) => {
+      const primary = cluster.primary;
+      const coverId = coversRef.current[primary.id] || primary.coverPhotoId;
       const orderedPhotos = [
-        location.photos.find((photo) => photo.id === coverId) || location.photos[0],
-        ...location.photos.filter((photo) => photo.id !== coverId)
+        cluster.photos.find((photo) => photo.id === coverId) || cluster.photos[0],
+        ...cluster.photos.filter((photo) => photo.id !== coverId)
       ].slice(0, 3);
+
+      const isCluster = cluster.members.length > 1;
+      const labelText = isCluster ? cluster.members.length + " 个地点" : primary.name;
 
       const element = document.createElement("div");
       element.className = "photo-stack-marker";
-      element.setAttribute("aria-label", `${location.name}，${location.photos.length} 张照片`);
+      element.setAttribute("aria-label", labelText + "，" + cluster.photos.length + " 张照片");
 
       const button = document.createElement("button");
       button.className = "photo-stack";
@@ -133,34 +189,42 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
           const card = document.createElement("span");
           card.className = "photo-card";
           card.style.setProperty("--stack-index", String(stackIndex));
-          card.innerHTML = `<img src="${photo.thumb}" alt="" />`;
+          card.innerHTML = '<img src="' + photo.thumb + '" alt="" />';
           button.appendChild(card);
         });
 
       const count = document.createElement("span");
       count.className = "photo-count";
-      count.textContent = String(location.photos.length);
+      count.textContent = String(cluster.photos.length);
       button.appendChild(count);
 
       const label = document.createElement("span");
       label.className = "place-label";
-      label.textContent = location.name;
+      label.textContent = labelText;
 
       element.append(button, label);
       button.addEventListener("click", (event) => {
         event.stopPropagation();
-        onSelectRef.current(location);
+        if (isCluster) {
+          map.flyTo({
+            center: primary.coordinates,
+            zoom: Math.min(map.getZoom() + 2, 11),
+            duration: 650,
+            essential: true
+          });
+        } else {
+          onSelectRef.current(primary);
+        }
       });
 
       const marker = new Marker({ element, anchor: "bottom" })
-        .setLngLat(location.coordinates)
+        .setLngLat(primary.coordinates)
         .addTo(map);
       marker.setOpacity(1, 0);
       markersRef.current.push(marker);
     });
   };
 
-  // 数据或封面变化时重新渲染
   useEffect(() => {
     if (!mapRef.current) return;
     renderAllRef.current();

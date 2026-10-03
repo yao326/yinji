@@ -4,7 +4,7 @@ import type { Photo, PhotoLocation } from "./data/types";
 import { importPhotosFromFiles } from "./lib/importPhotos";
 import { loadImported, saveImported, renameLocation, removePhoto } from "./lib/store";
 import { supabase } from "./lib/supabase";
-import { signUp, signIn, signOut, loadCloudLocations, uploadLocations, deleteCloudPhoto, renameCloudLocation } from "./lib/cloudSync";
+import { signUp, signIn, signOut, loadCloudLocations, uploadLocations, deleteCloudPhoto, renameCloudLocation, updateCloudCover } from "./lib/cloudSync";
 
 type ImportStatus = { kind: "working" | "done" | "error"; text: string } | null;
 type AuthState = "loading" | "signedOut" | "signedIn";
@@ -21,7 +21,9 @@ function App() {
 
   const [activeLocationId, setActiveLocationId] = useState<string>();
   const [clusterMembers, setClusterMembers] = useState<PhotoLocation[] | null>(null);
-  const [coverOverrides, setCoverOverrides] = useState<Record<string, string>>({});
+  const [coverOverrides, setCoverOverrides] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem("yinji.covers") || "{}"); } catch { return {}; }
+  });
   const [activePhoto, setActivePhoto] = useState<Photo>();
   const [showGallery, setShowGallery] = useState(false);
   const [locations, setLocations] = useState<PhotoLocation[]>([]);
@@ -138,8 +140,14 @@ function App() {
     setActiveLocationId(location.id);
   };
 
-  const handleSetCover = (locationId: string, photoId: string) =>
-    setCoverOverrides((current) => ({ ...current, [locationId]: photoId }));
+  const handleSetCover = (locationId: string, photoId: string) => {
+    setCoverOverrides((current) => {
+      const next = { ...current, [locationId]: photoId };
+      try { localStorage.setItem("yinji.covers", JSON.stringify(next)); } catch {}
+      return next;
+    });
+    if (authState === "signedIn") updateCloudCover(locationId, photoId).catch(() => {});
+  };
 
   const handleRename = (locationId: string, name: string) => {
     setLocations((current) =>
@@ -379,7 +387,7 @@ function App() {
               {allPhotos.map(({ photo, locationName }, i) => (
                 <div
                   className="gallery-photo cascade"
-                  style={{ animationDelay: i * 35 + "ms" }}
+                  style={{ animationDelay: i * 8 + "ms" }}
                   key={photo.id}
                   onContextMenu={(event) => {
                     event.preventDefault();
@@ -461,7 +469,7 @@ function App() {
               {activeLocation.photos.map((photo, i) => {
                 const isCover = coverId === photo.id;
                 return (
-                  <article className={"photo-tile cascade " + (isCover ? "is-cover" : "")} style={{ animationDelay: i * 35 + "ms" }} key={photo.id}>
+                  <article className={"photo-tile cascade " + (isCover ? "is-cover" : "")} style={{ animationDelay: i * 8 + "ms" }} key={photo.id}>
                     <button className="photo-open" onClick={() => setActivePhoto(photo)}>
                       <img src={photo.thumb} alt={photo.title} loading="lazy" decoding="async" />
                       <span>

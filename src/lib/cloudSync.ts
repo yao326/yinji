@@ -135,6 +135,12 @@ export async function uploadLocations(storedLocations: StoredLocation[]): Promis
   return count;
 }
 
+// ===== 云端设封面 =====
+export async function updateCloudCover(locationId: string, photoId: string): Promise<void> {
+  const { error } = await supabase.from("locations").update({ cover_photo_id: photoId }).eq("id", locationId);
+  if (error) throw error;
+}
+
 // ===== 删除照片 =====
 
 // ===== 云端改名 =====

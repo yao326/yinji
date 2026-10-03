@@ -62,8 +62,11 @@ async function toPhotoLocation(location: StoredLocation): Promise<{
       photo.blob.type === "image/png" ||
       photo.blob.type === "image/webp";
 
+    // 缩略图缺失、或过大（说明没真正压小）都要重新生成
+    const thumbTooBig = !!photo.thumbBlob && photo.thumbBlob.size > 200 * 1024;
+
     // 已处理过（有缩略图且主图已压缩）就直接用，避免每次打开都重新解码
-    if (photo.thumbBlob && jpegLike) {
+    if (photo.thumbBlob && jpegLike && !thumbTooBig) {
       photos.push({
         id: photo.id,
         title: photo.title,
@@ -79,7 +82,7 @@ async function toPhotoLocation(location: StoredLocation): Promise<{
       photo.blob = display;
       changed = true;
     }
-    if (!photo.thumbBlob) {
+    if (!photo.thumbBlob || thumbTooBig) {
       photo.thumbBlob = thumb;
       changed = true;
     }

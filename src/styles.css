@@ -182,7 +182,7 @@ button { color:inherit; font:inherit; }
   0% { opacity: 0; transform: translateY(22px) scale(.9); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
 }
-.cascade { animation: cascadeIn .5s cubic-bezier(.34,1.56,.64,1) both; }
+.cascade { animation: cascadeIn .34s cubic-bezier(.34,1.56,.64,1) both; }
 
 /* ===== 02 流体胶囊形变（FLUID MORPH）===== */
 .quick-toggle { transition: border-radius .5s cubic-bezier(.34,1.56,.64,1), transform .5s cubic-bezier(.34,1.56,.64,1), background .25s ease; }

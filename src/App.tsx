@@ -387,7 +387,7 @@ function App() {
               {allPhotos.map(({ photo, locationName }, i) => (
                 <div
                   className="gallery-photo cascade"
-                  style={{ animationDelay: i * 8 + "ms" }}
+                  style={{ animationDelay: i * 40 + "ms" }}
                   key={photo.id}
                   onContextMenu={(event) => {
                     event.preventDefault();
@@ -424,17 +424,28 @@ function App() {
               <p>{clusterMembers.reduce((n, l) => n + l.photos.length, 0)} 张照片 · 放大后自动分开</p>
             </div>
             <div className="photo-list">
-              {clusterMembers.flatMap((loc) => loc.photos.map((photo) => ({ photo, locName: loc.name }))).map(({ photo, locName }) => (
-                <article className="photo-tile cascade" key={photo.id}>
+              {clusterMembers.flatMap((loc) => loc.photos.map((photo) => ({ photo, loc }))).map(({ photo, loc }) => {
+                const isCover = (coverOverrides[loc.id] || loc.coverPhotoId) === photo.id;
+                return (
+                <article className={"photo-tile cascade " + (isCover ? "is-cover" : "")} key={photo.id}>
                   <button className="photo-open" onClick={() => setActivePhoto(photo)}>
                     <img src={photo.thumb} alt={photo.title} loading="lazy" decoding="async" />
                     <span>
                       <strong>{photo.title}</strong>
-                      <small>{locName}</small>
+                      <small>{loc.name}</small>
                     </span>
                   </button>
+                  <button
+                    className="cover-button"
+                    onClick={() => handleSetCover(loc.id, photo.id)}
+                    aria-label="设为封面"
+                    title={isCover ? "当前封面" : "设为封面"}
+                  >
+                    {isCover ? "★" : "☆"}
+                  </button>
                 </article>
-              ))}
+                );
+              })}
             </div>
           </>
         ) : activeLocation ? (
@@ -469,7 +480,7 @@ function App() {
               {activeLocation.photos.map((photo, i) => {
                 const isCover = coverId === photo.id;
                 return (
-                  <article className={"photo-tile cascade " + (isCover ? "is-cover" : "")} style={{ animationDelay: i * 8 + "ms" }} key={photo.id}>
+                  <article className={"photo-tile cascade " + (isCover ? "is-cover" : "")} style={{ animationDelay: i * 40 + "ms" }} key={photo.id}>
                     <button className="photo-open" onClick={() => setActivePhoto(photo)}>
                       <img src={photo.thumb} alt={photo.title} loading="lazy" decoding="async" />
                       <span>
@@ -504,7 +515,15 @@ function App() {
             <button className="viewer-close" onClick={() => setActivePhoto(undefined)} aria-label="关闭">
               ×
             </button>
-            <img src={activePhoto.image} alt={activePhoto.title} />
+            <div className="viewer-media">
+              <img className="viewer-blur" src={activePhoto.thumb || activePhoto.image} alt="" aria-hidden="true" />
+              <img
+                className="viewer-full"
+                src={activePhoto.image}
+                alt={activePhoto.title}
+                onLoad={(event) => event.currentTarget.classList.add("is-loaded")}
+              />
+            </div>
             <div>
               <h2>{activePhoto.title}</h2>
               <p>{activePhoto.date}</p>

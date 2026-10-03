@@ -66,7 +66,7 @@ export async function toDisplayAndThumb(blob: Blob): Promise<{ display: Blob; th
   }
 
   const display = await renderScaled(bitmap, decodable, 1600, 0.85);
-  const thumb = await renderScaled(bitmap, decodable, 480, 0.8);
+  const thumb = await renderScaled(bitmap, decodable, 400, 0.72);
   bitmap.close();
   return { display, thumb };
 }

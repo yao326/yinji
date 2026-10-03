@@ -8,6 +8,7 @@ type GlobeMapProps = {
   covers: Record<string, string>;
   activeLocationId?: string;
   onSelectLocation: (location: PhotoLocation) => void;
+  onSelectCluster?: (locations: PhotoLocation[]) => void;
 };
 
 type Cluster = {
@@ -91,16 +92,18 @@ function clusterLocations(locations: PhotoLocation[], zoom: number): Cluster[] {
   return clusters;
 }
 
-export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation }: GlobeMapProps) {
+export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation, onSelectCluster }: GlobeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
   const onSelectRef = useRef(onSelectLocation);
+  const onSelectClusterRef = useRef(onSelectCluster);
   const coversRef = useRef(covers);
   const locationsRef = useRef(locations);
   const renderAllRef = useRef<() => void>(() => {});
 
   onSelectRef.current = onSelectLocation;
+  onSelectClusterRef.current = onSelectCluster;
   coversRef.current = covers;
   locationsRef.current = locations;
 
@@ -212,6 +215,7 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
             duration: 650,
             essential: true
           });
+          onSelectClusterRef.current?.(cluster.members);
         } else {
           onSelectRef.current(primary);
         }

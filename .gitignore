@@ -20,3 +20,9 @@ debug-*.png
 
 wrangler.jsonc
 login*.txt
+
+启动印迹*.bat
+启动印迹*.vbs
+守护印迹*.bat
+守护印迹*.vbs
+常驻守护.vbs

@@ -20,6 +20,7 @@ function App() {
   const [authBusy, setAuthBusy] = useState(false);
 
   const [activeLocationId, setActiveLocationId] = useState<string>();
+  const [clusterMembers, setClusterMembers] = useState<PhotoLocation[] | null>(null);
   const [coverOverrides, setCoverOverrides] = useState<Record<string, string>>({});
   const [activePhoto, setActivePhoto] = useState<Photo>();
   const [showGallery, setShowGallery] = useState(false);
@@ -132,7 +133,10 @@ function App() {
     setShowAuthPanel(true);
   };
 
-  const handleSelect = (location: PhotoLocation) => setActiveLocationId(location.id);
+  const handleSelect = (location: PhotoLocation) => {
+    setClusterMembers(null);
+    setActiveLocationId(location.id);
+  };
 
   const handleSetCover = (locationId: string, photoId: string) =>
     setCoverOverrides((current) => ({ ...current, [locationId]: photoId }));
@@ -232,6 +236,10 @@ function App() {
         covers={coverOverrides}
         activeLocationId={activeLocationId}
         onSelectLocation={handleSelect}
+        onSelectCluster={(members) => {
+          setActiveLocationId(undefined);
+          setClusterMembers(members);
+        }}
       />
 
       <div className="top-left">
@@ -396,8 +404,32 @@ function App() {
         <span>点击照片堆</span>
       </div>
 
-      <aside className={"location-panel " + (activeLocation ? "is-open" : "")}>
-        {activeLocation && (
+      <aside className={"location-panel " + (activeLocation || clusterMembers ? "is-open" : "")}>
+        {clusterMembers ? (
+          <>
+            <button className="panel-close" onClick={() => setClusterMembers(null)} aria-label="关闭">
+              ×
+            </button>
+            <div className="panel-heading">
+              <span>合并显示</span>
+              <h1>{clusterMembers.length} 个地点</h1>
+              <p>{clusterMembers.reduce((n, l) => n + l.photos.length, 0)} 张照片 · 放大后自动分开</p>
+            </div>
+            <div className="photo-list">
+              {clusterMembers.flatMap((loc) => loc.photos.map((photo) => ({ photo, locName: loc.name }))).map(({ photo, locName }) => (
+                <article className="photo-tile cascade" key={photo.id}>
+                  <button className="photo-open" onClick={() => setActivePhoto(photo)}>
+                    <img src={photo.thumb} alt={photo.title} loading="lazy" decoding="async" />
+                    <span>
+                      <strong>{photo.title}</strong>
+                      <small>{locName}</small>
+                    </span>
+                  </button>
+                </article>
+              ))}
+            </div>
+          </>
+        ) : activeLocation ? (
           <>
             <button className="panel-close" onClick={() => setActiveLocationId(undefined)} aria-label="关闭">
               ×
@@ -450,7 +482,7 @@ function App() {
               })}
             </div>
           </>
-        )}
+        ) : null}
       </aside>
 
       <div

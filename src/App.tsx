@@ -285,23 +285,33 @@ function App() {
               </div>
               <button className="gallery-close" onClick={() => setShowGallery(false)} aria-label="关闭相册">×</button>
             </div>
-            <div className="gallery-grid">
-              {allPhotos.map(({ photo, locationName, locationId }, i) => (
-                <div
-                  className="gallery-photo cascade"
-                  style={{ animationDelay: i * 40 + "ms" }}
-                  key={photo.id}
-                  onContextMenu={(event) => {
-                    event.preventDefault();
-                    setContextMenu({ x: event.clientX, y: event.clientY, photo, locationId });
-                  }}
-                >
-                  <button className="gallery-photo-open" onClick={() => setActivePhoto(photo)}>
-                    <img src={photo.thumb} alt={photo.title} loading="lazy" decoding="async" />
-                    <span className="gallery-title">{photo.title}</span>
-                    <span className="gallery-addr">{locationName}</span>
-                  </button>
-                </div>
+            <div className="gallery-groups">
+              {locations.map((location) => (
+                <section className="gallery-group" key={location.id}>
+                  <div className="gallery-group-head">
+                    <strong>{location.name}</strong>
+                    <span>{location.photos.length} 张</span>
+                  </div>
+                  <div className="gallery-grid">
+                    {location.photos.map((photo, i) => (
+                      <div
+                        className="gallery-photo cascade"
+                        style={{ animationDelay: i * 40 + "ms" }}
+                        key={photo.id}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          setContextMenu({ x: event.clientX, y: event.clientY, photo, locationId: location.id });
+                        }}
+                      >
+                        <button className="gallery-photo-open" onClick={() => setActivePhoto(photo)}>
+                          <img src={photo.thumb} alt={photo.title} loading="lazy" decoding="async" />
+                          <span className="gallery-title">{photo.title}</span>
+                          <span className="gallery-addr">{photo.date}</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </section>
               ))}
             </div>
           </div>

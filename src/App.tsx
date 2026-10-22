@@ -13,6 +13,9 @@ function App() {
 
   const [activeLocationId, setActiveLocationId] = useState<string>();
   const [clusterMembers, setClusterMembers] = useState<PhotoLocation[] | null>(null);
+  const [lastCover, setLastCover] = useState<{ locationId: string; photoId: string } | null>(() => {
+    try { return JSON.parse(localStorage.getItem("yinji.lastCover") || "null"); } catch { return null; }
+  });
   const [coverOverrides, setCoverOverrides] = useState<Record<string, string>>(() => {
     try { return JSON.parse(localStorage.getItem("yinji.covers") || "{}"); } catch { return {}; }
   });
@@ -96,6 +99,9 @@ function App() {
       try { localStorage.setItem("yinji.covers", JSON.stringify(next)); } catch {}
       return next;
     });
+    const lc = { locationId, photoId };
+    setLastCover(lc);
+    try { localStorage.setItem("yinji.lastCover", JSON.stringify(lc)); } catch {}
     if (authState === "signedIn") updateCloudCover(locationId, photoId).catch(() => {});
   };
 
@@ -194,6 +200,7 @@ function App() {
         covers={coverOverrides}
         activeLocationId={activeLocationId}
         onSelectLocation={handleSelect}
+        lastCover={lastCover}
         onSelectCluster={(members) => {
           setActiveLocationId(undefined);
           setClusterMembers(members);

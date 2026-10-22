@@ -193,3 +193,9 @@ button { color:inherit; font:inherit; }
 .viewer-blur { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; filter:blur(18px); transform:scale(1.1); }
 .viewer-full { position:relative; opacity:0; transition:opacity .25s ease; }
 .viewer-full.is-loaded { opacity:1; }
+
+/* 相册按地区分组 */
+.gallery-groups { display:flex; flex-direction:column; gap:20px; }
+.gallery-group-head { display:flex; align-items:baseline; gap:8px; margin-bottom:8px; }
+.gallery-group-head strong { font-size:15px; color:#16222e; }
+.gallery-group-head span { font-size:11px; color:#667a8a; }

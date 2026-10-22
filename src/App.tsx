@@ -25,7 +25,7 @@ function App() {
   const [loadedCount, setLoadedCount] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; photo: Photo } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; photo: Photo; locationId: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -74,7 +74,8 @@ function App() {
         location.photos.map((photo) => ({
           photo,
           locationName: location.name,
-          country: location.country
+          country: location.country,
+          locationId: location.id
         }))
       ),
     [locations]
@@ -278,14 +279,14 @@ function App() {
               <button className="gallery-close" onClick={() => setShowGallery(false)} aria-label="关闭相册">×</button>
             </div>
             <div className="gallery-grid">
-              {allPhotos.map(({ photo, locationName }, i) => (
+              {allPhotos.map(({ photo, locationName, locationId }, i) => (
                 <div
                   className="gallery-photo cascade"
                   style={{ animationDelay: i * 40 + "ms" }}
                   key={photo.id}
                   onContextMenu={(event) => {
                     event.preventDefault();
-                    setContextMenu({ x: event.clientX, y: event.clientY, photo });
+                    setContextMenu({ x: event.clientX, y: event.clientY, photo, locationId });
                   }}
                 >
                   <button className="gallery-photo-open" onClick={() => setActivePhoto(photo)}>
@@ -437,6 +438,16 @@ function App() {
             }}
           />
           <div className="context-menu" style={{ left: contextMenu.x, top: contextMenu.y }}>
+            <button
+              className="context-item"
+              onClick={() => {
+                const { locationId, photo } = contextMenu;
+                setContextMenu(null);
+                handleSetCover(locationId, photo.id);
+              }}
+            >
+              设为第一张
+            </button>
             <button
               className="context-item"
               onClick={() => {

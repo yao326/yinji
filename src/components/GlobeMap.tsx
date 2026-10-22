@@ -9,6 +9,7 @@ type GlobeMapProps = {
   activeLocationId?: string;
   onSelectLocation: (location: PhotoLocation) => void;
   onSelectCluster?: (locations: PhotoLocation[]) => void;
+  lastCover?: { locationId: string; photoId: string } | null;
 };
 
 type Cluster = {
@@ -92,18 +93,20 @@ function clusterLocations(locations: PhotoLocation[], zoom: number): Cluster[] {
   return clusters;
 }
 
-export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation, onSelectCluster }: GlobeMapProps) {
+export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation, onSelectCluster, lastCover }: GlobeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
   const onSelectRef = useRef(onSelectLocation);
   const onSelectClusterRef = useRef(onSelectCluster);
+  const lastCoverRef = useRef(lastCover);
   const coversRef = useRef(covers);
   const locationsRef = useRef(locations);
   const renderAllRef = useRef<() => void>(() => {});
 
   onSelectRef.current = onSelectLocation;
   onSelectClusterRef.current = onSelectCluster;
+  lastCoverRef.current = lastCover;
   coversRef.current = covers;
   locationsRef.current = locations;
 
@@ -167,9 +170,13 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
 
     clusters.forEach((cluster) => {
       const primary = cluster.primary;
+      const lc = lastCoverRef.current;
+      const lcPhoto = lc && cluster.members.some((m) => m.id === lc.locationId)
+        ? cluster.photos.find((p) => p.id === lc.photoId)
+        : undefined;
       const customCovered = cluster.members.find((m) => coversRef.current[m.id]);
       const coverSource = customCovered ?? primary;
-      const coverId = coversRef.current[coverSource.id] || coverSource.coverPhotoId;
+      const coverId = lcPhoto ? lcPhoto.id : (coversRef.current[coverSource.id] || coverSource.coverPhotoId);
       const orderedPhotos = [
         cluster.photos.find((photo) => photo.id === coverId) || cluster.photos[0],
         ...cluster.photos.filter((photo) => photo.id !== coverId)

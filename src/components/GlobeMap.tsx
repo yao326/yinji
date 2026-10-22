@@ -64,7 +64,7 @@ function approxDistance(a: [number, number], b: [number, number]): number {
 }
 
 function mergeRadius(zoom: number): number {
-  return 10 / Math.pow(2, zoom);
+  return 2.5 / Math.pow(2, zoom);
 }
 
 function clusterLocations(locations: PhotoLocation[], zoom: number): Cluster[] {
@@ -167,7 +167,9 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
 
     clusters.forEach((cluster) => {
       const primary = cluster.primary;
-      const coverId = coversRef.current[primary.id] || primary.coverPhotoId;
+      const customCovered = cluster.members.find((m) => coversRef.current[m.id]);
+      const coverSource = customCovered ?? primary;
+      const coverId = coversRef.current[coverSource.id] || coverSource.coverPhotoId;
       const orderedPhotos = [
         cluster.photos.find((photo) => photo.id === coverId) || cluster.photos[0],
         ...cluster.photos.filter((photo) => photo.id !== coverId)
@@ -211,7 +213,7 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
         if (isCluster) {
           map.flyTo({
             center: primary.coordinates,
-            zoom: Math.min(map.getZoom() + 2, 11),
+            zoom: Math.min(map.getZoom() + 3, 12),
             duration: 650,
             essential: true
           });

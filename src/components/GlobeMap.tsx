@@ -64,7 +64,7 @@ function approxDistance(a: [number, number], b: [number, number]): number {
 }
 
 function mergeRadius(zoom: number): number {
-  return 2.5 / Math.pow(2, zoom);
+  return 5 / Math.pow(2, zoom);
 }
 
 function clusterLocations(locations: PhotoLocation[], zoom: number): Cluster[] {
@@ -162,18 +162,25 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
 
-    locationsRef.current.forEach((location) => {
-      const coverId = coversRef.current[location.id] || location.coverPhotoId;
+    const zoom = map.getZoom();
+    const clusters = clusterLocations(locationsRef.current, zoom);
+
+    clusters.forEach((cluster) => {
+      const primary = cluster.primary;
+      const customCovered = cluster.members.find((m) => coversRef.current[m.id]);
+      const coverSource = customCovered ?? primary;
+      const coverId = coversRef.current[coverSource.id] || coverSource.coverPhotoId;
       const orderedPhotos = [
-        location.photos.find((photo) => photo.id === coverId) || location.photos[0],
-        ...location.photos.filter((photo) => photo.id !== coverId)
+        cluster.photos.find((photo) => photo.id === coverId) || cluster.photos[0],
+        ...cluster.photos.filter((photo) => photo.id !== coverId)
       ].slice(0, 3);
 
-      const labelText = location.name;
+      const isCluster = cluster.members.length > 1;
+      const labelText = isCluster ? cluster.members.length + " 个地点" : primary.name;
 
       const element = document.createElement("div");
       element.className = "photo-stack-marker";
-      element.setAttribute("aria-label", labelText + "，" + location.photos.length + " 张照片");
+      element.setAttribute("aria-label", labelText + "，" + cluster.photos.length + " 张照片");
 
       const button = document.createElement("button");
       button.className = "photo-stack";
@@ -193,7 +200,7 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
 
       const count = document.createElement("span");
       count.className = "photo-count";
-      count.textContent = String(location.photos.length);
+      count.textContent = String(cluster.photos.length);
       button.appendChild(count);
 
       const label = document.createElement("span");
@@ -203,11 +210,21 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
       element.append(button, label);
       button.addEventListener("click", (event) => {
         event.stopPropagation();
-        onSelectRef.current(location);
+        if (isCluster) {
+          map.flyTo({
+            center: primary.coordinates,
+            zoom: Math.min(map.getZoom() + 3, 12),
+            duration: 650,
+            essential: true
+          });
+          onSelectClusterRef.current?.(cluster.members);
+        } else {
+          onSelectRef.current(primary);
+        }
       });
 
       const marker = new Marker({ element, anchor: "bottom" })
-        .setLngLat(location.coordinates)
+        .setLngLat(primary.coordinates)
         .addTo(map);
       marker.setOpacity(1, 0);
       markersRef.current.push(marker);

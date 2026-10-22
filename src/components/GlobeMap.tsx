@@ -162,25 +162,18 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
 
-    const zoom = map.getZoom();
-    const clusters = clusterLocations(locationsRef.current, zoom);
-
-    clusters.forEach((cluster) => {
-      const primary = cluster.primary;
-      const customCovered = cluster.members.find((m) => coversRef.current[m.id]);
-      const coverSource = customCovered ?? primary;
-      const coverId = coversRef.current[coverSource.id] || coverSource.coverPhotoId;
+    locationsRef.current.forEach((location) => {
+      const coverId = coversRef.current[location.id] || location.coverPhotoId;
       const orderedPhotos = [
-        cluster.photos.find((photo) => photo.id === coverId) || cluster.photos[0],
-        ...cluster.photos.filter((photo) => photo.id !== coverId)
+        location.photos.find((photo) => photo.id === coverId) || location.photos[0],
+        ...location.photos.filter((photo) => photo.id !== coverId)
       ].slice(0, 3);
 
-      const isCluster = cluster.members.length > 1;
-      const labelText = isCluster ? cluster.members.length + " 个地点" : primary.name;
+      const labelText = location.name;
 
       const element = document.createElement("div");
       element.className = "photo-stack-marker";
-      element.setAttribute("aria-label", labelText + "，" + cluster.photos.length + " 张照片");
+      element.setAttribute("aria-label", labelText + "，" + location.photos.length + " 张照片");
 
       const button = document.createElement("button");
       button.className = "photo-stack";
@@ -200,7 +193,7 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
 
       const count = document.createElement("span");
       count.className = "photo-count";
-      count.textContent = String(cluster.photos.length);
+      count.textContent = String(location.photos.length);
       button.appendChild(count);
 
       const label = document.createElement("span");
@@ -210,21 +203,11 @@ export function GlobeMap({ locations, covers, activeLocationId, onSelectLocation
       element.append(button, label);
       button.addEventListener("click", (event) => {
         event.stopPropagation();
-        if (isCluster) {
-          map.flyTo({
-            center: primary.coordinates,
-            zoom: Math.min(map.getZoom() + 3, 12),
-            duration: 650,
-            essential: true
-          });
-          onSelectClusterRef.current?.(cluster.members);
-        } else {
-          onSelectRef.current(primary);
-        }
+        onSelectRef.current(location);
       });
 
       const marker = new Marker({ element, anchor: "bottom" })
-        .setLngLat(primary.coordinates)
+        .setLngLat(location.coordinates)
         .addTo(map);
       marker.setOpacity(1, 0);
       markersRef.current.push(marker);

@@ -3,7 +3,6 @@ import { GlobeMap } from "./components/GlobeMap";
 import type { Photo, PhotoLocation } from "./data/types";
 import { importPhotosFromFiles } from "./lib/importPhotos";
 import { loadImported, saveImported, renameLocation, removePhoto } from "./lib/store";
-import { supabase } from "./lib/supabase";
 import { signUp, signIn, signOut, loadCloudLocations, uploadLocations, deleteCloudPhoto, renameCloudLocation, updateCloudCover } from "./lib/cloudSync";
 
 type ImportStatus = { kind: "working" | "done" | "error"; text: string } | null;
@@ -11,13 +10,6 @@ type AuthState = "loading" | "signedOut" | "signedIn";
 
 function App() {
   const [authState, setAuthState] = useState<AuthState>("loading");
-  const [userEmail, setUserEmail] = useState("");
-  const [showAuthPanel, setShowAuthPanel] = useState(false);
-  const [authMode, setAuthMode] = useState<"signIn" | "signUp">("signIn");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [authError, setAuthError] = useState("");
-  const [authBusy, setAuthBusy] = useState(false);
 
   const [activeLocationId, setActiveLocationId] = useState<string>();
   const [clusterMembers, setClusterMembers] = useState<PhotoLocation[] | null>(null);
@@ -37,15 +29,7 @@ function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        setAuthState("signedIn");
-        setUserEmail(data.session.user.email ?? "");
-      } else {
-        setAuthState("signedOut");
-        setShowAuthPanel(true);
-      }
-    });
+    setAuthState("signedOut");
   }, []);
 
   useEffect(() => {
@@ -99,41 +83,6 @@ function App() {
   const coverId = activeLocation
     ? coverOverrides[activeLocation.id] || activeLocation.coverPhotoId
     : undefined;
-
-  const handleAuth = async () => {
-    if (!email.trim() || password.length < 6) {
-      setAuthError("请输入邮箱，密码至少 6 位");
-      return;
-    }
-    setAuthBusy(true);
-    setAuthError("");
-    const fn = authMode === "signIn" ? signIn : signUp;
-    const err = await fn(email.trim(), password);
-    if (err) {
-      setAuthError(err);
-      setAuthBusy(false);
-      return;
-    }
-    const { data } = await supabase.auth.getSession();
-    if (data.session) {
-      setAuthState("signedIn");
-      setUserEmail(data.session.user.email ?? "");
-      setShowAuthPanel(false);
-    } else {
-      setAuthError("注册成功，请检查邮箱确认后登录");
-    }
-    setAuthBusy(false);
-  };
-
-  const handleSignOut = async () => {
-    await signOut();
-    setLocations([]);
-    setActiveLocationId(undefined);
-    setActivePhoto(undefined);
-    setCoverOverrides({});
-    setAuthState("signedOut");
-    setShowAuthPanel(true);
-  };
 
   const handleSelect = (location: PhotoLocation) => {
     setClusterMembers(null);
@@ -260,7 +209,7 @@ function App() {
             <span>Yinji</span>
           </div>
           <p>把走过的路，印在地球上。</p>
-          <em>{authState === "signedIn" ? "云端已同步" : "照片只保存在本机"}</em>
+          <em>照片只保存在本机</em>
         </header>
 
         <div className="quick-bar">
@@ -275,11 +224,6 @@ function App() {
             <div className="quick-menu">
               <button className="action-item import" onClick={handleImportClick}>导入</button>
               <button className="action-item" onClick={() => { setShowGallery(true); setMenuOpen(false); }}>相册</button>
-              {authState === "signedIn" ? (
-                <button className="action-item" onClick={() => { setMenuOpen(false); handleSignOut(); }}>登出</button>
-              ) : (
-                <button className="action-item" onClick={() => { setMenuOpen(false); setShowAuthPanel(true); }}>登录</button>
-              )}
             </div>
           )}
         </div>
@@ -311,60 +255,10 @@ function App() {
         <div className="import-toast error">⚠️ 照片读取失败，请刷新页面重试</div>
       )}
 
-      {!loadingImported && !loadError && locations.length === 0 && !showAuthPanel && (
+      {!loadingImported && !loadError && locations.length === 0 && (
         <div className="empty-state">
           <strong>还没有照片</strong>
           <span>点左上角“＋”→“导入”添加照片。</span>
-        </div>
-      )}
-
-      {showAuthPanel && authState === "signedOut" && (
-        <div className="auth-panel">
-          <div className="auth-card">
-            <div className="auth-head">
-              <strong>印迹</strong>
-              <span>登录后照片云端同步，换设备也能看</span>
-            </div>
-            <input
-              className="auth-input"
-              type="email"
-              placeholder="邮箱（QQ邮箱即可）"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-            <input
-              className="auth-input"
-              type="password"
-              placeholder="密码（至少 6 位）"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") handleAuth();
-              }}
-            />
-            {authError && <p className="auth-error">{authError}</p>}
-            <button className="auth-button" onClick={handleAuth} disabled={authBusy}>
-              {authBusy ? "请稍候…" : authMode === "signIn" ? "登录" : "注册"}
-            </button>
-            <button
-              className="auth-switch"
-              onClick={() => {
-                setAuthMode((m) => (m === "signIn" ? "signUp" : "signIn"));
-                setAuthError("");
-              }}
-            >
-              {authMode === "signIn" ? "没有账号？注册一个" : "已有账号？去登录"}
-            </button>
-            <button
-              className="auth-skip"
-              onClick={() => {
-                setShowAuthPanel(false);
-                setAuthError("");
-              }}
-            >
-              暂不登录，本地使用
-            </button>
-          </div>
         </div>
       )}
 

@@ -84,6 +84,20 @@ function App() {
     [locations]
   );
 
+  const galleryGroups = useMemo(() => {
+    const groups = new Map<string, { name: string; photos: { photo: Photo; locationId: string }[] }>();
+    for (const loc of locations) {
+      const key = loc.name || "未命名";
+      let g = groups.get(key);
+      if (!g) {
+        g = { name: key, photos: [] };
+        groups.set(key, g);
+      }
+      for (const photo of loc.photos) g.photos.push({ photo, locationId: loc.id });
+    }
+    return Array.from(groups.values());
+  }, [locations]);
+
   const coverId = activeLocation
     ? coverOverrides[activeLocation.id] || activeLocation.coverPhotoId
     : undefined;
@@ -286,21 +300,21 @@ function App() {
               <button className="gallery-close" onClick={() => setShowGallery(false)} aria-label="关闭相册">×</button>
             </div>
             <div className="gallery-groups">
-              {locations.map((location) => (
-                <section className="gallery-group" key={location.id}>
+              {galleryGroups.map((group) => (
+                <section className="gallery-group" key={group.name}>
                   <div className="gallery-group-head">
-                    <strong>{location.name}</strong>
-                    <span>{location.photos.length} 张</span>
+                    <strong>{group.name}</strong>
+                    <span>{group.photos.length} 张</span>
                   </div>
                   <div className="gallery-grid">
-                    {location.photos.map((photo, i) => (
+                    {group.photos.map(({ photo, locationId }, i) => (
                       <div
                         className="gallery-photo cascade"
                         style={{ animationDelay: i * 40 + "ms" }}
                         key={photo.id}
                         onContextMenu={(event) => {
                           event.preventDefault();
-                          setContextMenu({ x: event.clientX, y: event.clientY, photo, locationId: location.id });
+                          setContextMenu({ x: event.clientX, y: event.clientY, photo, locationId });
                         }}
                       >
                         <button className="gallery-photo-open" onClick={() => setActivePhoto(photo)}>
